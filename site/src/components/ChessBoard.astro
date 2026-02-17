@@ -1,5 +1,6 @@
 ---
 // Chess Board Component with Bot Support
+const base = import.meta.env.BASE_URL || '/';
 ---
 
 <div id="chess-container">
@@ -493,8 +494,7 @@ move  # Return the selected move</textarea>
   }
 </style>
 
-<script type="module">
-  const base = import.meta.env.BASE_URL || '/';
+<script type="module" define:vars={{ base }}>
 
   async function loadChessEngine() {
     const module = await import(`${base}wasm/chess_engine.js`);
