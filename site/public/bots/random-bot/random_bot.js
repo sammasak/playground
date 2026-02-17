@@ -1,8 +1,8 @@
 "use jco";
-import { getBoard, getLegalMoves, log } from '../../bot-host.js';
-import { exit, getEnvironment, getStderr, getStdin, getStdout } from '../../preview2-shim-cli.js';
-import { Descriptor, filesystemErrorCode, getDirectories } from '../../preview2-shim-filesystem.js';
-import { Error as Error$1, InputStream, OutputStream } from '../../preview2-shim-io.js';
+import { getBoard, getLegalMoves, log } from '../bot-host.js';
+import { exit, getEnvironment, getStderr, getStdin, getStdout } from '../preview2-shim-cli.js';
+import { Descriptor, filesystemErrorCode, getDirectories } from '../preview2-shim-filesystem.js';
+import { Error as Error$1, InputStream, OutputStream } from '../preview2-shim-io.js';
 
 const _debugLog = (...args) => {
   if (!globalThis?.process?.env?.JCO_DEBUG) { return; }
