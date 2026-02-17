@@ -1,6 +1,8 @@
 ---
 // Chess Board Component with Bot Support
-const base = import.meta.env.BASE_URL || '/';
+// Ensure base URL ends with a slash for proper path concatenation
+const rawBase = import.meta.env.BASE_URL || '/';
+const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
 ---
 
 <div id="chess-container">
