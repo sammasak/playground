@@ -3,6 +3,143 @@
 // Ensure base URL ends with a slash for proper path concatenation
 const rawBase = import.meta.env.BASE_URL || '/';
 const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
+
+const witCode = `// WIT interface for chess bot plugins
+package chess:bot@0.1.0;
+
+interface types {
+    enum piece-type {
+        pawn, knight, bishop, rook, queen, king
+    }
+    enum color { white, black }
+
+    record piece {
+        piece-type: piece-type,
+        color: color,
+    }
+
+    type square = u8;    // 0=a1, 63=h8
+    type move = string;  // UCI format: "e2e4", "e7e8q"
+
+    record move-history-entry {
+        uci-move: move,
+        resulting-fen: string,
+    }
+
+    record board-state {
+        squares: list<option<piece>>,
+        turn: color,
+        castling-rights: castling,
+        en-passant: option<square>,
+        halfmove-clock: u16,
+        fullmove-number: u16,
+        move-history: list<move-history-entry>,
+    }
+
+    record castling {
+        white-kingside: bool,
+        white-queenside: bool,
+        black-kingside: bool,
+        black-queenside: bool,
+    }
+
+    enum game-result {
+        in-progress, checkmate, stalemate, draw,
+    }
+}
+
+interface host {
+    use types.{board-state, move, game-result};
+    get-board: func() -> board-state;
+    get-legal-moves: func() -> list<move>;
+    is-check: func() -> bool;
+    get-game-result: func() -> game-result;
+    get-fen: func() -> string;
+    log: func(message: string);
+}
+
+interface bot {
+    use types.{move, color};
+    get-name: func() -> string;
+    get-description: func() -> string;
+    get-preferred-color: func() -> option<color>;
+    on-game-start: func();
+    select-move: func() -> move;
+    suggest-move: func() -> move;
+}
+
+world chess-bot {
+    import host;
+    export bot;
+}`;
+
+const pythonExample = `# Host functions (same API as compiled WASM components):
+#   get_board()       -> board state dict with move history
+#   get_legal_moves() -> list of UCI strings ["e2e4", ...]
+#   is_check()        -> bool
+#   get_fen()         -> FEN string
+#   log(msg)          -> print to bot log
+#   _pseudo_random(n) -> int in [0, n) for variety
+
+def select_move():
+    board = get_board()
+    moves = get_legal_moves()
+
+    # Strategy: prefer captures, then center control
+    best = moves[_pseudo_random(len(moves))]
+    center = [27, 28, 35, 36]  # d4, e4, d5, e5
+
+    for m in moves:
+        target_file = ord(m[2]) - ord('a')
+        target_rank = int(m[3]) - 1
+        target_idx = target_rank * 8 + target_file
+
+        # Always take captures
+        if board['squares'][target_idx] is not None:
+            log("Capturing with " + m)
+            return m
+
+        # Prefer center squares
+        if target_idx in center:
+            best = m
+
+    return best`;
+
+const componentizePyExample = `# bot.py — compile with: componentize-py -w chess-bot componentize bot -o bot.wasm
+from chess_bot.imports.host import (
+    get_board, get_legal_moves, is_check, log
+)
+from chess_bot.types import Move, Color
+import random  # available in full Python, not in playground
+
+class Bot:
+    def get_name(self) -> str:
+        return "My Python Bot"
+
+    def get_description(self) -> str:
+        return "A strategic Python chess bot"
+
+    def get_preferred_color(self) -> Color | None:
+        return None
+
+    def on_game_start(self) -> None:
+        log("Let's play!")
+
+    def select_move(self) -> Move:
+        board = get_board()
+        moves = get_legal_moves()
+
+        # Prefer captures
+        for m in moves:
+            tf = ord(m[2]) - ord('a')
+            tr = int(m[3]) - 1
+            if board.squares[tr * 8 + tf] is not None:
+                return m
+
+        return random.choice(moves)
+
+    def suggest_move(self) -> Move:
+        return self.select_move()`;
 ---
 
 <div id="chess-container">
@@ -12,107 +149,109 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
   </div>
 
   <div id="main-content">
-    <div id="board-section">
-      <div id="chess-board"></div>
-      <div id="controls">
-        <button id="reset-btn">New Game</button>
-        <button id="undo-btn" disabled>Undo</button>
-      </div>
-    </div>
-
-    <div id="bot-section">
-      <h3>Bot Controls</h3>
-
-      <div class="bot-panel">
-        <h4>White Player</h4>
-        <select id="white-player">
-          <option value="human">Human</option>
-          <option value="random-bot">Random Bot</option>
-          <option value="python-bot">Python Bot</option>
-          <option value="upload">Upload Bot...</option>
-        </select>
-        <div id="white-bot-mode" class="bot-mode" style="display: none;">
-          <label>
-            <input type="radio" name="white-mode" value="auto" checked> Auto-play
-          </label>
-          <label>
-            <input type="radio" name="white-mode" value="suggest"> Suggest moves
-          </label>
+    <div id="board-column">
+      <div id="board-section">
+        <div id="chess-board"></div>
+        <div id="controls">
+          <button id="reset-btn">New Game</button>
+          <button id="undo-btn" disabled>Undo</button>
         </div>
       </div>
+      <div id="move-history">
+        <h3>Move History</h3>
+        <div id="moves-list"></div>
+      </div>
+    </div>
 
-      <div class="bot-panel">
-        <h4>Black Player</h4>
-        <select id="black-player">
-          <option value="human">Human</option>
-          <option value="random-bot">Random Bot</option>
-          <option value="python-bot">Python Bot</option>
-          <option value="upload">Upload Bot...</option>
-        </select>
-        <div id="black-bot-mode" class="bot-mode" style="display: none;">
-          <label>
-            <input type="radio" name="black-mode" value="auto" checked> Auto-play
-          </label>
-          <label>
-            <input type="radio" name="black-mode" value="suggest"> Suggest moves
-          </label>
+    <div id="side-panel">
+      <div id="tab-bar">
+        <button class="tab active" data-tab="wit-tab">Bot Interface</button>
+        <button class="tab" data-tab="editor-tab">Python Editor</button>
+        <button class="tab" data-tab="controls-tab">Controls</button>
+      </div>
+
+      <div id="tab-content">
+        <!-- WIT Interface Tab -->
+        <div id="wit-tab" class="tab-pane active">
+          <div class="wit-section">
+            <h4>WIT Interface Definition</h4>
+            <p class="wit-desc">Bots receive the full board state (with move history) and legal moves, then return a UCI move string.</p>
+            <pre id="wit-code" class="code-block">{witCode}</pre>
+          </div>
+
+          <div class="wit-section">
+            <h4>Build a Bot with Python</h4>
+            <p class="wit-desc">Compile to a WASM component with <a href="https://github.com/bytecodealliance/componentize-py" target="_blank">componentize-py</a>, or try the playground editor.</p>
+            <pre class="code-block python-block">{componentizePyExample}</pre>
+          </div>
+        </div>
+
+        <!-- Python Editor Tab -->
+        <div id="editor-tab" class="tab-pane" style="display: none;">
+          <div class="editor-header">
+            <h4>Python Bot Playground</h4>
+            <p class="editor-desc">Same host API as compiled components. Write <code>select_move()</code> and test instantly.</p>
+            <p class="editor-desc"><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank">Monty</a> — secure Python subset in WASM</em></p>
+          </div>
+          <textarea id="python-code" spellcheck="false">{pythonExample}</textarea>
+          <div class="editor-actions">
+            <button id="test-python">Test Code</button>
+            <button id="apply-python">Apply to Bot</button>
+          </div>
+          <div id="python-error" style="display: none;"></div>
+        </div>
+
+        <!-- Controls Tab -->
+        <div id="controls-tab" class="tab-pane" style="display: none;">
+          <div class="controls-section">
+            <h4>White Player</h4>
+            <select id="white-player">
+              <option value="human">Human</option>
+              <option value="random-bot">Random Bot</option>
+              <option value="python-bot">Python Bot</option>
+              <option value="upload">Upload Bot...</option>
+            </select>
+            <div id="white-bot-mode" class="bot-mode" style="display: none;">
+              <label><input type="radio" name="white-mode" value="auto" checked> Auto-play</label>
+              <label><input type="radio" name="white-mode" value="suggest"> Suggest moves</label>
+            </div>
+          </div>
+
+          <div class="controls-section">
+            <h4>Black Player</h4>
+            <select id="black-player">
+              <option value="human">Human</option>
+              <option value="random-bot">Random Bot</option>
+              <option value="python-bot">Python Bot</option>
+              <option value="upload">Upload Bot...</option>
+            </select>
+            <div id="black-bot-mode" class="bot-mode" style="display: none;">
+              <label><input type="radio" name="black-mode" value="auto" checked> Auto-play</label>
+              <label><input type="radio" name="black-mode" value="suggest"> Suggest moves</label>
+            </div>
+          </div>
+
+          <div id="bot-vs-bot-controls" style="display: none;">
+            <button id="start-match">Start Bot Match</button>
+            <button id="pause-match" disabled>Pause</button>
+            <label>
+              Speed: <input type="range" id="match-speed" min="100" max="2000" value="500">
+              <span id="speed-label">500ms</span>
+            </label>
+          </div>
+
+          <div id="suggested-move" style="display: none;">
+            <strong>Suggested move:</strong> <span id="suggestion"></span>
+            <button id="play-suggestion">Play it</button>
+          </div>
+
+          <div id="bot-log">
+            <h4>Bot Log</h4>
+            <div id="log-content"></div>
+          </div>
         </div>
       </div>
-
-      <div id="bot-vs-bot-controls" style="display: none;">
-        <button id="start-match">Start Bot Match</button>
-        <button id="pause-match" disabled>Pause</button>
-        <label>
-          Speed: <input type="range" id="match-speed" min="100" max="2000" value="500">
-          <span id="speed-label">500ms</span>
-        </label>
-      </div>
-
-      <div id="suggested-move" style="display: none;">
-        <strong>Suggested move:</strong> <span id="suggestion"></span>
-        <button id="play-suggestion">Play it</button>
-      </div>
-
-      <div id="bot-log">
-        <h4>Bot Log</h4>
-        <div id="log-content"></div>
-      </div>
     </div>
-
-    <div id="python-editor" style="display: none;">
-      <h3>Python Bot Editor</h3>
-      <div class="editor-info">
-        <p><strong>Inputs:</strong> <code>legal_moves</code> (list of UCI strings), <code>board</code> (dict with squares array), <code>turn</code></p>
-        <p><strong>Output:</strong> Return a UCI move string like <code>"e2e4"</code> or <code>"e7e8q"</code> (promotion)</p>
-        <p><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank">Monty</a> - a secure Python subset in WASM</em></p>
-      </div>
-      <textarea id="python-code" spellcheck="false"># Chess Bot in Python (Monty runtime)
-# Available inputs:
-#   legal_moves: list of UCI strings ["e2e4", "d2d4", ...]
-#   board: dict with 'squares', 'turn', 'castling_rights', etc.
-#   turn: "white" or "black"
-
-import random
-
-# Simple random bot - picks a random legal move
-move = random.choice(legal_moves)
-
-# Prefer captures (pieces have 'color' and 'piece_type')
-# for m in legal_moves:
-#     target = int(m[2]) + (ord(m[3]) - ord('1')) * 8
-#     if board['squares'][target]:
-#         move = m
-#         break
-
-move  # Return the selected move</textarea>
-      <button id="test-python">Test Code</button>
-      <div id="python-error" style="display: none;"></div>
-    </div>
-  </div>
-
-  <div id="move-history">
-    <h3>Move History</h3>
-    <div id="moves-list"></div>
   </div>
 
   <input type="file" id="bot-upload" accept=".wasm,.js" style="display: none;">
@@ -123,31 +262,42 @@ move  # Return the selected move</textarea>
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: 15px;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   #game-info {
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     text-align: center;
   }
 
   #turn-indicator {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
   }
 
   #game-status {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: #e74c3c;
-    min-height: 1.5em;
+    min-height: 1.4em;
   }
 
   #main-content {
     display: flex;
-    gap: 30px;
+    gap: 24px;
     align-items: flex-start;
+    width: 100%;
+  }
+
+  #board-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
   }
 
   #board-section {
@@ -204,14 +354,14 @@ move  # Return the selected move</textarea>
   }
 
   #controls {
-    margin-top: 15px;
+    margin-top: 12px;
     display: flex;
     gap: 10px;
   }
 
-  #controls button, #bot-section button {
-    padding: 10px 20px;
-    font-size: 1rem;
+  button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
     cursor: pointer;
     border: none;
     border-radius: 5px;
@@ -220,56 +370,281 @@ move  # Return the selected move</textarea>
     transition: background-color 0.2s;
   }
 
-  #controls button:hover:not(:disabled), #bot-section button:hover:not(:disabled) {
+  button:hover:not(:disabled) {
     background-color: #2980b9;
   }
 
-  #controls button:disabled, #bot-section button:disabled {
+  button:disabled {
     background-color: #bdc3c7;
     cursor: not-allowed;
   }
 
-  #bot-section {
+  #move-history {
+    margin-top: 16px;
+    width: 486px;
+    color: #333;
     background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    min-width: 250px;
-    color: #333;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  #bot-section h3 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: #333;
+  #move-history h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+    color: #555;
   }
 
-  .bot-panel {
-    margin-bottom: 20px;
-    padding: 10px;
+  #moves-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-height: 100px;
+    overflow-y: auto;
+    padding: 8px;
     background: #f5f5f5;
     border-radius: 5px;
+    min-height: 30px;
   }
 
-  .bot-panel h4 {
-    margin: 0 0 10px 0;
-    font-size: 0.9rem;
+  .move-entry {
+    padding: 2px 6px;
+    background: white;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+
+  /* Side Panel */
+  #side-panel {
+    flex: 1;
+    min-width: 0;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    max-height: 680px;
+    color: #333;
+  }
+
+  #tab-bar {
+    display: flex;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px 16px;
+    background: transparent;
     color: #666;
+    border: none;
+    border-radius: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
   }
 
-  .bot-panel select {
+  .tab:hover {
+    color: #333;
+    background: #f5f5f5;
+  }
+
+  .tab.active {
+    color: #3498db;
+    background: transparent;
+  }
+
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #3498db;
+  }
+
+  #tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .tab-pane {
+    display: none;
+  }
+
+  .tab-pane.active {
+    display: block;
+  }
+
+  /* WIT Tab */
+  .wit-section {
+    margin-bottom: 20px;
+  }
+
+  .wit-section h4 {
+    margin: 0 0 6px 0;
+    font-size: 0.95rem;
+    color: #333;
+  }
+
+  .wit-desc {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0 0 10px 0;
+    line-height: 1.5;
+  }
+
+  .wit-desc a {
+    color: #3498db;
+    text-decoration: none;
+  }
+
+  .wit-desc a:hover {
+    text-decoration: underline;
+  }
+
+  .code-block {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 14px;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .python-block {
+    max-height: 300px;
+  }
+
+  /* Editor Tab */
+  .editor-header {
+    margin-bottom: 12px;
+  }
+
+  .editor-header h4 {
+    margin: 0 0 6px 0;
+    font-size: 0.95rem;
+  }
+
+  .editor-desc {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+  }
+
+  .editor-desc code {
+    background: #e8e8e8;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+
+  .editor-desc a {
+    color: #3498db;
+    text-decoration: none;
+  }
+
+  .editor-desc a:hover {
+    text-decoration: underline;
+  }
+
+  #python-code {
+    width: 100%;
+    height: 320px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 13px;
+    padding: 12px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    resize: vertical;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    line-height: 1.5;
+    tab-size: 4;
+    box-sizing: border-box;
+  }
+
+  .editor-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  #test-python {
+    background: #28a745;
+  }
+
+  #test-python:hover {
+    background: #218838;
+  }
+
+  #apply-python {
+    background: #6f42c1;
+  }
+
+  #apply-python:hover {
+    background: #5a32a3;
+  }
+
+  #python-error {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    color: #721c24;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+
+  #python-error.success {
+    background: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+  }
+
+  /* Controls Tab */
+  .controls-section {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f5f5f5;
+    border-radius: 6px;
+  }
+
+  .controls-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.9rem;
+    color: #555;
+  }
+
+  .controls-section select {
     width: 100%;
     padding: 8px;
     border-radius: 5px;
     border: 1px solid #ddd;
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .bot-mode {
-    margin-top: 10px;
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
   }
 
   .bot-mode label {
@@ -278,57 +653,53 @@ move  # Return the selected move</textarea>
   }
 
   #bot-vs-bot-controls {
-    margin-bottom: 15px;
-    padding: 10px;
+    margin-bottom: 16px;
+    padding: 12px;
     background: #e8f4ea;
-    border-radius: 5px;
+    border-radius: 6px;
   }
 
   #bot-vs-bot-controls button {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     width: 100%;
   }
 
   #bot-vs-bot-controls label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     font-size: 0.9rem;
   }
 
   #suggested-move {
-    margin-bottom: 15px;
-    padding: 10px;
+    margin-bottom: 16px;
+    padding: 12px;
     background: #fff3cd;
-    border-radius: 5px;
+    border-radius: 6px;
     border: 1px solid #ffc107;
   }
 
   #suggested-move button {
-    margin-top: 10px;
+    margin-top: 8px;
     width: 100%;
     background-color: #28a745;
   }
 
-  #bot-log {
-    max-height: 150px;
-    overflow-y: auto;
-  }
-
   #bot-log h4 {
-    margin: 0 0 10px 0;
+    margin: 0 0 8px 0;
     font-size: 0.9rem;
-    color: #666;
+    color: #555;
   }
 
   #log-content {
     font-family: monospace;
     font-size: 0.8rem;
-    background: #f9f9f9;
+    background: #f5f5f5;
     padding: 10px;
     border-radius: 5px;
-    max-height: 100px;
+    max-height: 200px;
     overflow-y: auto;
+    min-height: 40px;
   }
 
   .log-entry {
@@ -336,38 +707,7 @@ move  # Return the selected move</textarea>
     color: #555;
   }
 
-  #move-history {
-    margin-top: 20px;
-    max-width: 750px;
-    width: 100%;
-    color: #333;
-    background: white;
-    padding: 15px;
-    border-radius: 10px;
-  }
-
-  #move-history h3 {
-    margin-top: 0;
-  }
-
-  #moves-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    max-height: 150px;
-    overflow-y: auto;
-    padding: 10px;
-    background: #f5f5f5;
-    border-radius: 5px;
-  }
-
-  .move-entry {
-    padding: 3px 8px;
-    background: white;
-    border-radius: 3px;
-    font-family: monospace;
-  }
-
+  /* Promotion Modal */
   .promotion-modal {
     position: fixed;
     top: 0;
@@ -405,99 +745,26 @@ move  # Return the selected move</textarea>
   .promotion-choice:hover {
     background: #7fa650;
   }
-
-  #python-editor {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    min-width: 400px;
-    max-width: 500px;
-    color: #333;
-  }
-
-  #python-editor h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
-  }
-
-  .editor-info {
-    font-size: 0.85rem;
-    color: #666;
-    margin-bottom: 10px;
-    background: #f5f5f5;
-    padding: 10px;
-    border-radius: 5px;
-  }
-
-  .editor-info p {
-    margin: 5px 0;
-  }
-
-  .editor-info code {
-    background: #e0e0e0;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-family: monospace;
-  }
-
-  .editor-info a {
-    color: #3498db;
-    text-decoration: none;
-  }
-
-  .editor-info a:hover {
-    text-decoration: underline;
-  }
-
-  #python-code {
-    width: 100%;
-    height: 200px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 13px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    resize: vertical;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    line-height: 1.5;
-  }
-
-  #test-python {
-    margin-top: 10px;
-    padding: 8px 16px;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-
-  #test-python:hover {
-    background: #218838;
-  }
-
-  #python-error {
-    margin-top: 10px;
-    padding: 10px;
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 5px;
-    color: #721c24;
-    font-family: monospace;
-    font-size: 0.85rem;
-  }
-
-  #python-error.success {
-    background: #d4edda;
-    border-color: #c3e6cb;
-    color: #155724;
-  }
 </style>
 
 <script type="module" define:vars={{ base }}>
 
+  // --- Tab switching ---
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => {
+        p.classList.remove('active');
+        p.style.display = 'none';
+      });
+      tab.classList.add('active');
+      const pane = document.getElementById(tab.dataset.tab);
+      pane.classList.add('active');
+      pane.style.display = 'block';
+    });
+  });
+
+  // --- Chess Engine ---
   async function loadChessEngine() {
     const module = await import(`${base}wasm/chess_engine.js`);
     await module.default(`${base}wasm/chess_engine_bg.wasm`);
@@ -516,7 +783,7 @@ move  # Return the selected move</textarea>
       montyLoaded = true;
       addLogEntry('Python runtime (Monty) loaded');
     } catch (e) {
-      addLogEntry(`Failed to load Python runtime: ${e.message}`);
+      addLogEntry(`Failed to load Python runtime: ${(e.message || String(e))}`);
       console.error(e);
     }
   }
@@ -538,20 +805,49 @@ move  # Return the selected move</textarea>
   let matchPaused = false;
   let pythonBotCode = { white: null, black: null };
 
+  // --- Python Host-Function Shim ---
+  // Monty API: withInputs(code, names_json_array) creates instance,
+  // then runWithInputs(values_json_object) executes with those values.
+  // We use underscore-prefixed names to avoid conflicts, then wrap in functions.
+  const PYTHON_INPUT_NAMES = ["_board", "_legal_moves", "_is_check", "_fen", "_seed"];
+  const PYTHON_SHIM = `
+def get_board():
+    return _board
+
+def get_legal_moves():
+    return _legal_moves
+
+def is_check():
+    return _is_check
+
+def get_fen():
+    return _fen
+
+def log(msg):
+    pass
+
+def _pseudo_random(n):
+    return _seed % n if n > 0 else 0
+
+`;
+
   function getPythonInputs() {
     const boardState = JSON.parse(game.get_board_state());
     const legalMoves = JSON.parse(game.get_legal_moves());
     return {
-      legal_moves: legalMoves,
-      board: {
+      _legal_moves: legalMoves,
+      _board: {
         squares: boardState.squares,
         turn: boardState.turn,
         castling_rights: boardState.castling,
         en_passant: boardState.en_passant,
         halfmove_clock: boardState.halfmove_clock,
         fullmove_number: boardState.fullmove_number,
+        move_history: boardState.move_history || [],
       },
-      turn: boardState.turn,
+      _is_check: game.is_check(),
+      _fen: game.get_fen(),
+      _seed: Math.floor(Math.random() * 2147483647),
     };
   }
 
@@ -560,8 +856,9 @@ move  # Return the selected move</textarea>
       throw new Error('Python runtime not loaded');
     }
     const inputs = getPythonInputs();
-    const m = MontyClass.withInputs(code, JSON.stringify(inputs));
-    const result = m.run();
+    const fullCode = PYTHON_SHIM + code + '\n\nselect_move()';
+    const m = MontyClass.withInputs(fullCode, JSON.stringify(PYTHON_INPUT_NAMES));
+    const result = m.runWithInputs(JSON.stringify(inputs));
     return JSON.parse(result);
   }
 
@@ -593,7 +890,6 @@ move  # Return the selected move</textarea>
         const botModule = await import(`${base}bots/random-bot/random_bot.js`);
         const botHost = await import(`${base}bots/bot-host.js`);
 
-        // Set up the host
         botHost.setGame(game);
         botHost.setLogCallback(addLogEntry);
 
@@ -605,7 +901,7 @@ move  # Return the selected move</textarea>
           suggestMove: () => botModule.bot.suggestMove(),
         };
       } catch (e) {
-        addLogEntry(`Error loading bot: ${e.message}`);
+        addLogEntry(`Error loading bot: ${(e.message || String(e))}`);
         console.error(e);
         return null;
       }
@@ -622,6 +918,7 @@ move  # Return the selected move</textarea>
     logContent.scrollTop = logContent.scrollHeight;
   }
 
+  // --- Game Init ---
   async function initGame() {
     const { ChessGame } = await loadChessEngine();
     game = new ChessGame();
@@ -643,22 +940,21 @@ move  # Return the selected move</textarea>
       }
 
       const modeDiv = document.getElementById('white-bot-mode');
-      const pythonEditor = document.getElementById('python-editor');
 
       if (value === 'human') {
         bots.white = null;
         modeDiv.style.display = 'none';
       } else {
+        if (value === 'python-bot') {
+          // Switch to editor tab
+          document.querySelector('.tab[data-tab="editor-tab"]').click();
+        }
         bots.white = await loadBot(value, 'white');
         modeDiv.style.display = 'block';
         if (bots.white) {
           addLogEntry(`White: ${bots.white.getName()} loaded`);
         }
       }
-
-      // Show Python editor if any player uses Python bot
-      const blackValue = blackSelect.value;
-      pythonEditor.style.display = (value === 'python-bot' || blackValue === 'python-bot') ? 'block' : 'none';
 
       updateBotVsBotUI();
       checkBotTurn();
@@ -673,22 +969,20 @@ move  # Return the selected move</textarea>
       }
 
       const modeDiv = document.getElementById('black-bot-mode');
-      const pythonEditor = document.getElementById('python-editor');
 
       if (value === 'human') {
         bots.black = null;
         modeDiv.style.display = 'none';
       } else {
+        if (value === 'python-bot') {
+          document.querySelector('.tab[data-tab="editor-tab"]').click();
+        }
         bots.black = await loadBot(value, 'black');
         modeDiv.style.display = 'block';
         if (bots.black) {
           addLogEntry(`Black: ${bots.black.getName()} loaded`);
         }
       }
-
-      // Show Python editor if any player uses Python bot
-      const whiteValue = whiteSelect.value;
-      pythonEditor.style.display = (value === 'python-bot' || whiteValue === 'python-bot') ? 'block' : 'none';
 
       updateBotVsBotUI();
       checkBotTurn();
@@ -721,6 +1015,7 @@ move  # Return the selected move</textarea>
       }
     });
 
+    // Test button: validate code
     document.getElementById('test-python').addEventListener('click', async () => {
       const errorDiv = document.getElementById('python-error');
       const code = document.getElementById('python-code').value;
@@ -733,30 +1028,40 @@ move  # Return the selected move</textarea>
         if (legalMoves.includes(result)) {
           errorDiv.className = 'success';
           errorDiv.style.display = 'block';
-          errorDiv.textContent = `Success! Bot selected: ${result}`;
+          errorDiv.textContent = `Bot selected: ${result}`;
         } else {
           errorDiv.className = '';
           errorDiv.style.display = 'block';
           errorDiv.textContent = `Warning: "${result}" is not a legal move. Legal moves: ${legalMoves.slice(0, 5).join(', ')}...`;
         }
-
-        // Re-load bots to update with new code
-        const whiteSelect = document.getElementById('white-player');
-        const blackSelect = document.getElementById('black-player');
-        if (whiteSelect.value === 'python-bot') {
-          bots.white = await loadBot('python-bot', 'white');
-        }
-        if (blackSelect.value === 'python-bot') {
-          bots.black = await loadBot('python-bot', 'black');
-        }
       } catch (e) {
         errorDiv.className = '';
         errorDiv.style.display = 'block';
-        errorDiv.textContent = `Error: ${e.message}`;
+        errorDiv.textContent = `Error: ${(e.message || String(e))}`;
+      }
+    });
+
+    // Apply button: re-load bots with new code
+    document.getElementById('apply-python').addEventListener('click', async () => {
+      const whiteValue = whiteSelect.value;
+      const blackValue = blackSelect.value;
+
+      if (whiteValue === 'python-bot') {
+        bots.white = await loadBot('python-bot', 'white');
+        addLogEntry('White Python bot updated');
+      }
+      if (blackValue === 'python-bot') {
+        bots.black = await loadBot('python-bot', 'black');
+        addLogEntry('Black Python bot updated');
+      }
+
+      if (whiteValue !== 'python-bot' && blackValue !== 'python-bot') {
+        addLogEntry('No Python bot active — select "Python Bot" in Controls tab first');
       }
     });
   }
 
+  // --- Bot Match ---
   function updateBotVsBotUI() {
     const botVsBotControls = document.getElementById('bot-vs-bot-controls');
     if (bots.white && bots.black) {
@@ -812,7 +1117,7 @@ move  # Return the selected move</textarea>
           stopBotMatch();
         }
       } catch (e) {
-        addLogEntry(`Error: ${e.message}`);
+        addLogEntry(`Error: ${(e.message || String(e))}`);
         stopBotMatch();
       }
     }
@@ -858,7 +1163,7 @@ move  # Return the selected move</textarea>
             checkBotTurn();
           }
         } catch (e) {
-          addLogEntry(`Error: ${e.message}`);
+          addLogEntry(`Error: ${(e.message || String(e))}`);
         }
       }, 300);
     } else if (bot && mode === 'suggest') {
@@ -868,7 +1173,7 @@ move  # Return the selected move</textarea>
         document.getElementById('suggestion').textContent = suggestedMove;
         renderBoard();
       } catch (e) {
-        addLogEntry(`Error getting suggestion: ${e.message}`);
+        addLogEntry(`Error getting suggestion: ${(e.message || String(e))}`);
       }
     } else {
       suggestedMove = null;
@@ -876,6 +1181,7 @@ move  # Return the selected move</textarea>
     }
   }
 
+  // --- Board Rendering ---
   function squareToIndex(sq) {
     const file = sq.charCodeAt(0) - 97;
     const rank = parseInt(sq[1]) - 1;
@@ -937,7 +1243,6 @@ move  # Return the selected move</textarea>
   function handleSquareClick(sq) {
     const turn = game.get_turn();
 
-    // Don't allow clicks during bot's turn in auto mode
     const bot = turn === 'white' ? bots.white : bots.black;
     const mode = turn === 'white' ? botModes.white : botModes.black;
     if (bot && mode === 'auto') return;

@@ -1032,6 +1032,7 @@ pub struct BoardJson {
     pub en_passant: Option<String>,
     pub halfmove_clock: u16,
     pub fullmove_number: u16,
+    pub move_history: Vec<MoveHistoryEntryJson>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1048,10 +1049,17 @@ pub struct CastlingJson {
     pub black_queenside: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MoveHistoryEntryJson {
+    pub uci_move: String,
+    pub resulting_fen: String,
+}
+
 // WASM bindings
 #[wasm_bindgen]
 pub struct ChessGame {
     board: Board,
+    move_history: Vec<MoveHistoryEntryJson>,
 }
 
 // wasm_bindgen doesn't support Default trait implementations
@@ -1065,12 +1073,13 @@ impl ChessGame {
 
         ChessGame {
             board: Board::new(),
+            move_history: Vec::new(),
         }
     }
 
     #[wasm_bindgen]
     pub fn from_fen(fen: &str) -> Option<ChessGame> {
-        Board::from_fen(fen).map(|board| ChessGame { board })
+        Board::from_fen(fen).map(|board| ChessGame { board, move_history: Vec::new() })
     }
 
     #[wasm_bindgen]
@@ -1092,7 +1101,15 @@ impl ChessGame {
     #[wasm_bindgen]
     pub fn make_move(&mut self, uci: &str) -> bool {
         if let Some(mv) = Move::from_uci(uci) {
-            self.board.make_move(mv)
+            if self.board.make_move(mv) {
+                self.move_history.push(MoveHistoryEntryJson {
+                    uci_move: uci.to_string(),
+                    resulting_fen: self.board.to_fen(),
+                });
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -1125,6 +1142,7 @@ impl ChessGame {
             }),
             halfmove_clock: self.board.halfmove_clock,
             fullmove_number: self.board.fullmove_number,
+            move_history: self.move_history.clone(),
         };
 
         serde_json::to_string(&board_json).unwrap_or_else(|_| "{}".to_string())
@@ -1153,6 +1171,12 @@ impl ChessGame {
     #[wasm_bindgen]
     pub fn reset(&mut self) {
         self.board = Board::new();
+        self.move_history.clear();
+    }
+
+    #[wasm_bindgen]
+    pub fn get_move_history(&self) -> String {
+        serde_json::to_string(&self.move_history).unwrap_or_else(|_| "[]".to_string())
     }
 
     #[wasm_bindgen]

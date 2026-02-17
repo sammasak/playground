@@ -31,6 +31,12 @@ interface types {
     // A move in UCI format (e.g., "e2e4", "e7e8q" for promotion)
     type move = string;
 
+    // A single entry in the move history
+    record move-history-entry {
+        uci-move: move,
+        resulting-fen: string,
+    }
+
     // Board representation - array of 64 squares
     // Each square is either empty (none) or has a piece
     record board-state {
@@ -40,6 +46,7 @@ interface types {
         en-passant: option<square>,
         halfmove-clock: u16,
         fullmove-number: u16,
+        move-history: list<move-history-entry>,
     }
 
     // Castling rights
@@ -63,7 +70,7 @@ interface types {
 interface host {
     use types.{board-state, move, game-result};
 
-    // Get the current board state
+    // Get the current board state (includes move history)
     get-board: func() -> board-state;
 
     // Get all legal moves for the current position
