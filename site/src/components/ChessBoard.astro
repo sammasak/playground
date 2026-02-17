@@ -1,0 +1,1070 @@
+---
+// Chess Board Component with Bot Support
+---
+
+<div id="chess-container">
+  <div id="game-info">
+    <div id="turn-indicator">White to move</div>
+    <div id="game-status"></div>
+  </div>
+
+  <div id="main-content">
+    <div id="board-section">
+      <div id="chess-board"></div>
+      <div id="controls">
+        <button id="reset-btn">New Game</button>
+        <button id="undo-btn" disabled>Undo</button>
+      </div>
+    </div>
+
+    <div id="bot-section">
+      <h3>Bot Controls</h3>
+
+      <div class="bot-panel">
+        <h4>White Player</h4>
+        <select id="white-player">
+          <option value="human">Human</option>
+          <option value="random-bot">Random Bot</option>
+          <option value="python-bot">Python Bot</option>
+          <option value="upload">Upload Bot...</option>
+        </select>
+        <div id="white-bot-mode" class="bot-mode" style="display: none;">
+          <label>
+            <input type="radio" name="white-mode" value="auto" checked> Auto-play
+          </label>
+          <label>
+            <input type="radio" name="white-mode" value="suggest"> Suggest moves
+          </label>
+        </div>
+      </div>
+
+      <div class="bot-panel">
+        <h4>Black Player</h4>
+        <select id="black-player">
+          <option value="human">Human</option>
+          <option value="random-bot">Random Bot</option>
+          <option value="python-bot">Python Bot</option>
+          <option value="upload">Upload Bot...</option>
+        </select>
+        <div id="black-bot-mode" class="bot-mode" style="display: none;">
+          <label>
+            <input type="radio" name="black-mode" value="auto" checked> Auto-play
+          </label>
+          <label>
+            <input type="radio" name="black-mode" value="suggest"> Suggest moves
+          </label>
+        </div>
+      </div>
+
+      <div id="bot-vs-bot-controls" style="display: none;">
+        <button id="start-match">Start Bot Match</button>
+        <button id="pause-match" disabled>Pause</button>
+        <label>
+          Speed: <input type="range" id="match-speed" min="100" max="2000" value="500">
+          <span id="speed-label">500ms</span>
+        </label>
+      </div>
+
+      <div id="suggested-move" style="display: none;">
+        <strong>Suggested move:</strong> <span id="suggestion"></span>
+        <button id="play-suggestion">Play it</button>
+      </div>
+
+      <div id="bot-log">
+        <h4>Bot Log</h4>
+        <div id="log-content"></div>
+      </div>
+    </div>
+
+    <div id="python-editor" style="display: none;">
+      <h3>Python Bot Editor</h3>
+      <div class="editor-info">
+        <p><strong>Inputs:</strong> <code>legal_moves</code> (list of UCI strings), <code>board</code> (dict with squares array), <code>turn</code></p>
+        <p><strong>Output:</strong> Return a UCI move string like <code>"e2e4"</code> or <code>"e7e8q"</code> (promotion)</p>
+        <p><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank">Monty</a> - a secure Python subset in WASM</em></p>
+      </div>
+      <textarea id="python-code" spellcheck="false"># Chess Bot in Python (Monty runtime)
+# Available inputs:
+#   legal_moves: list of UCI strings ["e2e4", "d2d4", ...]
+#   board: dict with 'squares', 'turn', 'castling_rights', etc.
+#   turn: "white" or "black"
+
+import random
+
+# Simple random bot - picks a random legal move
+move = random.choice(legal_moves)
+
+# Prefer captures (pieces have 'color' and 'piece_type')
+# for m in legal_moves:
+#     target = int(m[2]) + (ord(m[3]) - ord('1')) * 8
+#     if board['squares'][target]:
+#         move = m
+#         break
+
+move  # Return the selected move</textarea>
+      <button id="test-python">Test Code</button>
+      <div id="python-error" style="display: none;"></div>
+    </div>
+  </div>
+
+  <div id="move-history">
+    <h3>Move History</h3>
+    <div id="moves-list"></div>
+  </div>
+
+  <input type="file" id="bot-upload" accept=".wasm,.js" style="display: none;">
+</div>
+
+<style>
+  #chess-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  #game-info {
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  #turn-indicator {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  #game-status {
+    font-size: 1.2rem;
+    color: #e74c3c;
+    min-height: 1.5em;
+  }
+
+  #main-content {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+  }
+
+  #board-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #chess-board {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    border: 3px solid #333;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .square {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease;
+  }
+
+  .square.light { background-color: #f0d9b5; }
+  .square.dark { background-color: #b58863; }
+  .square.selected { background-color: #7fa650 !important; }
+  .square.suggested { background-color: #9dc3e6 !important; }
+  .square.check { background-color: #e74c3c !important; }
+  .square.last-move { background-color: #cdd26a !important; }
+
+  .square.legal-move { position: relative; }
+  .square.legal-move::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+  }
+
+  .square.legal-capture::after {
+    content: '';
+    position: absolute;
+    width: 54px;
+    height: 54px;
+    border: 3px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    background: none;
+  }
+
+  #controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+  }
+
+  #controls button, #bot-section button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #3498db;
+    color: white;
+    transition: background-color 0.2s;
+  }
+
+  #controls button:hover:not(:disabled), #bot-section button:hover:not(:disabled) {
+    background-color: #2980b9;
+  }
+
+  #controls button:disabled, #bot-section button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+  }
+
+  #bot-section {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    min-width: 250px;
+    color: #333;
+  }
+
+  #bot-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+  }
+
+  .bot-panel {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 5px;
+  }
+
+  .bot-panel h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  .bot-panel select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    font-size: 1rem;
+  }
+
+  .bot-mode {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .bot-mode label {
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  #bot-vs-bot-controls {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #e8f4ea;
+    border-radius: 5px;
+  }
+
+  #bot-vs-bot-controls button {
+    margin-bottom: 10px;
+    width: 100%;
+  }
+
+  #bot-vs-bot-controls label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+  }
+
+  #suggested-move {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #fff3cd;
+    border-radius: 5px;
+    border: 1px solid #ffc107;
+  }
+
+  #suggested-move button {
+    margin-top: 10px;
+    width: 100%;
+    background-color: #28a745;
+  }
+
+  #bot-log {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  #bot-log h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  #log-content {
+    font-family: monospace;
+    font-size: 0.8rem;
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+    max-height: 100px;
+    overflow-y: auto;
+  }
+
+  .log-entry {
+    margin-bottom: 3px;
+    color: #555;
+  }
+
+  #move-history {
+    margin-top: 20px;
+    max-width: 750px;
+    width: 100%;
+    color: #333;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+  }
+
+  #move-history h3 {
+    margin-top: 0;
+  }
+
+  #moves-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 5px;
+  }
+
+  .move-entry {
+    padding: 3px 8px;
+    background: white;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+
+  .promotion-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .promotion-choices {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .promotion-choice {
+    width: 60px;
+    height: 60px;
+    font-size: 40px;
+    cursor: pointer;
+    border: 2px solid #333;
+    border-radius: 5px;
+    background: #f0d9b5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .promotion-choice:hover {
+    background: #7fa650;
+  }
+
+  #python-editor {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    min-width: 400px;
+    max-width: 500px;
+    color: #333;
+  }
+
+  #python-editor h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+  }
+
+  .editor-info {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 10px;
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 5px;
+  }
+
+  .editor-info p {
+    margin: 5px 0;
+  }
+
+  .editor-info code {
+    background: #e0e0e0;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+
+  .editor-info a {
+    color: #3498db;
+    text-decoration: none;
+  }
+
+  .editor-info a:hover {
+    text-decoration: underline;
+  }
+
+  #python-code {
+    width: 100%;
+    height: 200px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    resize: vertical;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    line-height: 1.5;
+  }
+
+  #test-python {
+    margin-top: 10px;
+    padding: 8px 16px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  #test-python:hover {
+    background: #218838;
+  }
+
+  #python-error {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    color: #721c24;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+
+  #python-error.success {
+    background: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+  }
+</style>
+
+<script type="module">
+  const base = import.meta.env.BASE_URL || '/';
+
+  async function loadChessEngine() {
+    const module = await import(`${base}wasm/chess_engine.js`);
+    await module.default(`${base}wasm/chess_engine_bg.wasm`);
+    return module;
+  }
+
+  let montyLoaded = false;
+  let MontyClass = null;
+
+  async function loadMonty() {
+    if (montyLoaded) return;
+    try {
+      const module = await import(`${base}monty/monty_wasm.js`);
+      await module.default(`${base}monty/monty_wasm_bg.wasm`);
+      MontyClass = module.Monty;
+      montyLoaded = true;
+      addLogEntry('Python runtime (Monty) loaded');
+    } catch (e) {
+      addLogEntry(`Failed to load Python runtime: ${e.message}`);
+      console.error(e);
+    }
+  }
+
+  const PIECE_UNICODE = {
+    white: { king: '\u2654', queen: '\u2655', rook: '\u2656', bishop: '\u2657', knight: '\u2658', pawn: '\u2659' },
+    black: { king: '\u265A', queen: '\u265B', rook: '\u265C', bishop: '\u265D', knight: '\u265E', pawn: '\u265F' }
+  };
+
+  let game;
+  let selectedSquare = null;
+  let legalMoves = [];
+  let moveHistory = [];
+  let lastMove = null;
+  let suggestedMove = null;
+  let bots = { white: null, black: null };
+  let botModes = { white: 'auto', black: 'auto' };
+  let matchInterval = null;
+  let matchPaused = false;
+  let pythonBotCode = { white: null, black: null };
+
+  function getPythonInputs() {
+    const boardState = JSON.parse(game.get_board_state());
+    const legalMoves = JSON.parse(game.get_legal_moves());
+    return {
+      legal_moves: legalMoves,
+      board: {
+        squares: boardState.squares,
+        turn: boardState.turn,
+        castling_rights: boardState.castling,
+        en_passant: boardState.en_passant,
+        halfmove_clock: boardState.halfmove_clock,
+        fullmove_number: boardState.fullmove_number,
+      },
+      turn: boardState.turn,
+    };
+  }
+
+  function executePythonBot(code) {
+    if (!MontyClass) {
+      throw new Error('Python runtime not loaded');
+    }
+    const inputs = getPythonInputs();
+    const m = MontyClass.withInputs(code, JSON.stringify(inputs));
+    const result = m.run();
+    return JSON.parse(result);
+  }
+
+  async function loadBot(botId, color = null) {
+    if (botId === 'python-bot') {
+      await loadMonty();
+      const code = document.getElementById('python-code').value;
+      if (color) {
+        pythonBotCode[color] = code;
+      }
+      return {
+        getName: () => 'Python Bot',
+        getDescription: () => 'Custom Python bot',
+        onGameStart: () => {},
+        selectMove: () => {
+          const c = color || game.get_turn();
+          const botCode = pythonBotCode[c] || code;
+          return executePythonBot(botCode);
+        },
+        suggestMove: () => {
+          const c = color || game.get_turn();
+          const botCode = pythonBotCode[c] || code;
+          return executePythonBot(botCode);
+        },
+      };
+    }
+    if (botId === 'random-bot') {
+      try {
+        const botModule = await import(`${base}bots/random-bot/random_bot.js`);
+        const botHost = await import(`${base}bots/bot-host.js`);
+
+        // Set up the host
+        botHost.setGame(game);
+        botHost.setLogCallback(addLogEntry);
+
+        return {
+          getName: () => botModule.bot.getName(),
+          getDescription: () => botModule.bot.getDescription(),
+          onGameStart: () => botModule.bot.onGameStart(),
+          selectMove: () => botModule.bot.selectMove(),
+          suggestMove: () => botModule.bot.suggestMove(),
+        };
+      } catch (e) {
+        addLogEntry(`Error loading bot: ${e.message}`);
+        console.error(e);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function addLogEntry(message) {
+    const logContent = document.getElementById('log-content');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    logContent.appendChild(entry);
+    logContent.scrollTop = logContent.scrollHeight;
+  }
+
+  async function initGame() {
+    const { ChessGame } = await loadChessEngine();
+    game = new ChessGame();
+    renderBoard();
+    updateUI();
+    setupBotControls();
+  }
+
+  function setupBotControls() {
+    const whiteSelect = document.getElementById('white-player');
+    const blackSelect = document.getElementById('black-player');
+
+    whiteSelect.addEventListener('change', async (e) => {
+      const value = e.target.value;
+      if (value === 'upload') {
+        document.getElementById('bot-upload').click();
+        whiteSelect.value = 'human';
+        return;
+      }
+
+      const modeDiv = document.getElementById('white-bot-mode');
+      const pythonEditor = document.getElementById('python-editor');
+
+      if (value === 'human') {
+        bots.white = null;
+        modeDiv.style.display = 'none';
+      } else {
+        bots.white = await loadBot(value, 'white');
+        modeDiv.style.display = 'block';
+        if (bots.white) {
+          addLogEntry(`White: ${bots.white.getName()} loaded`);
+        }
+      }
+
+      // Show Python editor if any player uses Python bot
+      const blackValue = blackSelect.value;
+      pythonEditor.style.display = (value === 'python-bot' || blackValue === 'python-bot') ? 'block' : 'none';
+
+      updateBotVsBotUI();
+      checkBotTurn();
+    });
+
+    blackSelect.addEventListener('change', async (e) => {
+      const value = e.target.value;
+      if (value === 'upload') {
+        document.getElementById('bot-upload').click();
+        blackSelect.value = 'human';
+        return;
+      }
+
+      const modeDiv = document.getElementById('black-bot-mode');
+      const pythonEditor = document.getElementById('python-editor');
+
+      if (value === 'human') {
+        bots.black = null;
+        modeDiv.style.display = 'none';
+      } else {
+        bots.black = await loadBot(value, 'black');
+        modeDiv.style.display = 'block';
+        if (bots.black) {
+          addLogEntry(`Black: ${bots.black.getName()} loaded`);
+        }
+      }
+
+      // Show Python editor if any player uses Python bot
+      const whiteValue = whiteSelect.value;
+      pythonEditor.style.display = (value === 'python-bot' || whiteValue === 'python-bot') ? 'block' : 'none';
+
+      updateBotVsBotUI();
+      checkBotTurn();
+    });
+
+    document.querySelectorAll('input[name="white-mode"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        botModes.white = e.target.value;
+        checkBotTurn();
+      });
+    });
+
+    document.querySelectorAll('input[name="black-mode"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        botModes.black = e.target.value;
+        checkBotTurn();
+      });
+    });
+
+    document.getElementById('start-match').addEventListener('click', startBotMatch);
+    document.getElementById('pause-match').addEventListener('click', togglePauseMatch);
+
+    document.getElementById('match-speed').addEventListener('input', (e) => {
+      document.getElementById('speed-label').textContent = `${e.target.value}ms`;
+    });
+
+    document.getElementById('play-suggestion').addEventListener('click', () => {
+      if (suggestedMove) {
+        makeMove(suggestedMove);
+      }
+    });
+
+    document.getElementById('test-python').addEventListener('click', async () => {
+      const errorDiv = document.getElementById('python-error');
+      const code = document.getElementById('python-code').value;
+
+      try {
+        await loadMonty();
+        const result = executePythonBot(code);
+        const legalMoves = JSON.parse(game.get_legal_moves());
+
+        if (legalMoves.includes(result)) {
+          errorDiv.className = 'success';
+          errorDiv.style.display = 'block';
+          errorDiv.textContent = `Success! Bot selected: ${result}`;
+        } else {
+          errorDiv.className = '';
+          errorDiv.style.display = 'block';
+          errorDiv.textContent = `Warning: "${result}" is not a legal move. Legal moves: ${legalMoves.slice(0, 5).join(', ')}...`;
+        }
+
+        // Re-load bots to update with new code
+        const whiteSelect = document.getElementById('white-player');
+        const blackSelect = document.getElementById('black-player');
+        if (whiteSelect.value === 'python-bot') {
+          bots.white = await loadBot('python-bot', 'white');
+        }
+        if (blackSelect.value === 'python-bot') {
+          bots.black = await loadBot('python-bot', 'black');
+        }
+      } catch (e) {
+        errorDiv.className = '';
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = `Error: ${e.message}`;
+      }
+    });
+  }
+
+  function updateBotVsBotUI() {
+    const botVsBotControls = document.getElementById('bot-vs-bot-controls');
+    if (bots.white && bots.black) {
+      botVsBotControls.style.display = 'block';
+    } else {
+      botVsBotControls.style.display = 'none';
+      stopBotMatch();
+    }
+  }
+
+  function startBotMatch() {
+    if (!bots.white || !bots.black) return;
+
+    botModes.white = 'auto';
+    botModes.black = 'auto';
+
+    bots.white.onGameStart?.();
+    bots.black.onGameStart?.();
+
+    addLogEntry('Bot match started!');
+    document.getElementById('start-match').disabled = true;
+    document.getElementById('pause-match').disabled = false;
+    matchPaused = false;
+
+    playNextBotMove();
+  }
+
+  function playNextBotMove() {
+    if (matchPaused) return;
+
+    const state = game.get_game_state();
+    if (state !== 'in_progress') {
+      stopBotMatch();
+      return;
+    }
+
+    const turn = game.get_turn();
+    const bot = turn === 'white' ? bots.white : bots.black;
+
+    if (bot) {
+      try {
+        const move = bot.selectMove();
+        if (move && game.make_move(move)) {
+          moveHistory.push(move);
+          lastMove = move;
+          renderBoard();
+          updateUI();
+
+          const speed = parseInt(document.getElementById('match-speed').value);
+          matchInterval = setTimeout(playNextBotMove, speed);
+        } else {
+          addLogEntry(`Invalid move from ${turn}: ${move}`);
+          stopBotMatch();
+        }
+      } catch (e) {
+        addLogEntry(`Error: ${e.message}`);
+        stopBotMatch();
+      }
+    }
+  }
+
+  function togglePauseMatch() {
+    matchPaused = !matchPaused;
+    document.getElementById('pause-match').textContent = matchPaused ? 'Resume' : 'Pause';
+
+    if (!matchPaused) {
+      playNextBotMove();
+    }
+  }
+
+  function stopBotMatch() {
+    if (matchInterval) {
+      clearTimeout(matchInterval);
+      matchInterval = null;
+    }
+    document.getElementById('start-match').disabled = false;
+    document.getElementById('pause-match').disabled = true;
+    addLogEntry('Bot match ended');
+  }
+
+  async function checkBotTurn() {
+    const state = game.get_game_state();
+    if (state !== 'in_progress') return;
+
+    const turn = game.get_turn();
+    const bot = turn === 'white' ? bots.white : bots.black;
+    const mode = turn === 'white' ? botModes.white : botModes.black;
+
+    if (bot && mode === 'auto' && !matchInterval) {
+      setTimeout(async () => {
+        try {
+          const move = bot.selectMove();
+          if (move && game.make_move(move)) {
+            moveHistory.push(move);
+            lastMove = move;
+            suggestedMove = null;
+            renderBoard();
+            updateUI();
+            checkBotTurn();
+          }
+        } catch (e) {
+          addLogEntry(`Error: ${e.message}`);
+        }
+      }, 300);
+    } else if (bot && mode === 'suggest') {
+      try {
+        suggestedMove = bot.suggestMove();
+        document.getElementById('suggested-move').style.display = 'block';
+        document.getElementById('suggestion').textContent = suggestedMove;
+        renderBoard();
+      } catch (e) {
+        addLogEntry(`Error getting suggestion: ${e.message}`);
+      }
+    } else {
+      suggestedMove = null;
+      document.getElementById('suggested-move').style.display = 'none';
+    }
+  }
+
+  function squareToIndex(sq) {
+    const file = sq.charCodeAt(0) - 97;
+    const rank = parseInt(sq[1]) - 1;
+    return rank * 8 + file;
+  }
+
+  function indexToSquare(idx) {
+    const file = String.fromCharCode(97 + (idx % 8));
+    const rank = Math.floor(idx / 8) + 1;
+    return `${file}${rank}`;
+  }
+
+  function renderBoard() {
+    const board = document.getElementById('chess-board');
+    board.innerHTML = '';
+
+    const boardState = JSON.parse(game.get_board_state());
+    const isCheck = game.is_check();
+    const turn = game.get_turn();
+
+    for (let rank = 7; rank >= 0; rank--) {
+      for (let file = 0; file < 8; file++) {
+        const idx = rank * 8 + file;
+        const sq = indexToSquare(idx);
+        const piece = boardState.squares[idx];
+
+        const div = document.createElement('div');
+        div.className = `square ${(file + rank) % 2 === 0 ? 'dark' : 'light'}`;
+        div.dataset.square = sq;
+
+        if (piece) {
+          div.textContent = PIECE_UNICODE[piece.color][piece.piece_type];
+          if (piece.piece_type === 'king' && piece.color === turn && isCheck) {
+            div.classList.add('check');
+          }
+        }
+
+        if (selectedSquare === sq) div.classList.add('selected');
+
+        const isLegalMove = legalMoves.some(m => m.slice(2, 4) === sq);
+        if (isLegalMove) {
+          div.classList.add(piece ? 'legal-capture' : 'legal-move');
+        }
+
+        if (lastMove && (sq === lastMove.slice(0, 2) || sq === lastMove.slice(2, 4))) {
+          div.classList.add('last-move');
+        }
+
+        if (suggestedMove && (sq === suggestedMove.slice(0, 2) || sq === suggestedMove.slice(2, 4))) {
+          div.classList.add('suggested');
+        }
+
+        div.addEventListener('click', () => handleSquareClick(sq));
+        board.appendChild(div);
+      }
+    }
+  }
+
+  function handleSquareClick(sq) {
+    const turn = game.get_turn();
+
+    // Don't allow clicks during bot's turn in auto mode
+    const bot = turn === 'white' ? bots.white : bots.black;
+    const mode = turn === 'white' ? botModes.white : botModes.black;
+    if (bot && mode === 'auto') return;
+
+    const boardState = JSON.parse(game.get_board_state());
+    const idx = squareToIndex(sq);
+    const piece = boardState.squares[idx];
+
+    if (selectedSquare) {
+      const moveUci = selectedSquare + sq;
+      const isLegal = legalMoves.some(m => m.startsWith(moveUci));
+
+      if (isLegal) {
+        const fromIdx = squareToIndex(selectedSquare);
+        const fromPiece = boardState.squares[fromIdx];
+        const toRank = parseInt(sq[1]);
+
+        if (fromPiece && fromPiece.piece_type === 'pawn' &&
+            ((turn === 'white' && toRank === 8) || (turn === 'black' && toRank === 1))) {
+          showPromotionModal(selectedSquare, sq);
+          return;
+        }
+
+        makeMove(moveUci);
+        return;
+      }
+    }
+
+    if (piece && piece.color === turn) {
+      selectedSquare = sq;
+      legalMoves = JSON.parse(game.get_legal_moves()).filter(m => m.startsWith(sq));
+    } else {
+      selectedSquare = null;
+      legalMoves = [];
+    }
+
+    renderBoard();
+  }
+
+  function showPromotionModal(from, to) {
+    const turn = game.get_turn();
+
+    const modal = document.createElement('div');
+    modal.className = 'promotion-modal';
+    modal.innerHTML = `
+      <div class="promotion-choices">
+        <div class="promotion-choice" data-piece="q">${PIECE_UNICODE[turn].queen}</div>
+        <div class="promotion-choice" data-piece="r">${PIECE_UNICODE[turn].rook}</div>
+        <div class="promotion-choice" data-piece="b">${PIECE_UNICODE[turn].bishop}</div>
+        <div class="promotion-choice" data-piece="n">${PIECE_UNICODE[turn].knight}</div>
+      </div>
+    `;
+
+    modal.querySelectorAll('.promotion-choice').forEach(choice => {
+      choice.addEventListener('click', () => {
+        const piece = choice.dataset.piece;
+        makeMove(`${from}${to}${piece}`);
+        modal.remove();
+      });
+    });
+
+    document.body.appendChild(modal);
+  }
+
+  function makeMove(uci) {
+    if (game.make_move(uci)) {
+      moveHistory.push(uci);
+      lastMove = uci;
+      selectedSquare = null;
+      legalMoves = [];
+      suggestedMove = null;
+      renderBoard();
+      updateUI();
+      checkBotTurn();
+    }
+  }
+
+  function updateUI() {
+    const turn = game.get_turn();
+    const state = game.get_game_state();
+    const isCheck = game.is_check();
+
+    const turnIndicator = document.getElementById('turn-indicator');
+    turnIndicator.textContent = `${turn === 'white' ? 'White' : 'Black'} to move`;
+
+    const gameStatus = document.getElementById('game-status');
+    if (state === 'checkmate') {
+      const winner = turn === 'white' ? 'Black' : 'White';
+      gameStatus.textContent = `Checkmate! ${winner} wins!`;
+      turnIndicator.textContent = '';
+    } else if (state === 'stalemate') {
+      gameStatus.textContent = 'Stalemate! Draw.';
+      turnIndicator.textContent = '';
+    } else if (state === 'draw') {
+      gameStatus.textContent = 'Draw!';
+      turnIndicator.textContent = '';
+    } else if (isCheck) {
+      gameStatus.textContent = 'Check!';
+    } else {
+      gameStatus.textContent = '';
+    }
+
+    const movesList = document.getElementById('moves-list');
+    movesList.innerHTML = '';
+    moveHistory.forEach((move, i) => {
+      const entry = document.createElement('span');
+      entry.className = 'move-entry';
+      entry.textContent = `${Math.floor(i / 2) + 1}${i % 2 === 0 ? '.' : '...'} ${move}`;
+      movesList.appendChild(entry);
+    });
+
+    document.getElementById('undo-btn').disabled = moveHistory.length === 0;
+  }
+
+  function resetGame() {
+    stopBotMatch();
+    game.reset();
+    selectedSquare = null;
+    legalMoves = [];
+    moveHistory = [];
+    lastMove = null;
+    suggestedMove = null;
+    renderBoard();
+    updateUI();
+    document.getElementById('suggested-move').style.display = 'none';
+    checkBotTurn();
+  }
+
+  document.getElementById('reset-btn').addEventListener('click', resetGame);
+
+  initGame();
+</script>

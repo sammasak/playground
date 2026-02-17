@@ -1,0 +1,113 @@
+// WIT interface for chess bot plugins
+package chess:bot@0.1.0;
+
+// Types representing the chess game state
+interface types {
+    // Piece types
+    enum piece-type {
+        pawn,
+        knight,
+        bishop,
+        rook,
+        queen,
+        king
+    }
+
+    // Colors
+    enum color {
+        white,
+        black
+    }
+
+    // A piece on the board
+    record piece {
+        piece-type: piece-type,
+        color: color,
+    }
+
+    // Square on the board (0-63, where 0=a1, 63=h8)
+    type square = u8;
+
+    // A move in UCI format (e.g., "e2e4", "e7e8q" for promotion)
+    type move = string;
+
+    // Board representation - array of 64 squares
+    // Each square is either empty (none) or has a piece
+    record board-state {
+        squares: list<option<piece>>,
+        turn: color,
+        castling-rights: castling,
+        en-passant: option<square>,
+        halfmove-clock: u16,
+        fullmove-number: u16,
+    }
+
+    // Castling rights
+    record castling {
+        white-kingside: bool,
+        white-queenside: bool,
+        black-kingside: bool,
+        black-queenside: bool,
+    }
+
+    // Game result
+    enum game-result {
+        in-progress,
+        checkmate,
+        stalemate,
+        draw,
+    }
+}
+
+// Interface that the host provides to bots
+interface host {
+    use types.{board-state, move, game-result};
+
+    // Get the current board state
+    get-board: func() -> board-state;
+
+    // Get all legal moves for the current position
+    get-legal-moves: func() -> list<move>;
+
+    // Check if the current side is in check
+    is-check: func() -> bool;
+
+    // Get the current game result
+    get-game-result: func() -> game-result;
+
+    // Get the FEN string for the current position
+    get-fen: func() -> string;
+
+    // Log a message (for debugging)
+    log: func(message: string);
+}
+
+// Interface that bots implement
+interface bot {
+    use types.{move, color};
+
+    // Get the bot's name
+    get-name: func() -> string;
+
+    // Get the bot's description
+    get-description: func() -> string;
+
+    // Get the bot's preferred color (or none for either)
+    get-preferred-color: func() -> option<color>;
+
+    // Called when the game starts
+    on-game-start: func();
+
+    // Called when it's the bot's turn to move
+    // Should return a legal move in UCI format
+    select-move: func() -> move;
+
+    // Called to get a suggested move (without making it)
+    suggest-move: func() -> move;
+}
+
+// The world that chess bots live in
+world chess-bot {
+    import host;
+    export bot;
+}

@@ -1,11 +1,36 @@
 ---
-import Welcome from '../components/Welcome.astro';
+import ChessBoard from '../components/ChessBoard.astro';
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
 <Layout>
-	<Welcome />
+	<main>
+		<h1>WASM Chess</h1>
+		<p>A high-performance chess game powered by Rust and WebAssembly</p>
+		<ChessBoard />
+	</main>
 </Layout>
+
+<style>
+	main {
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 20px;
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		color: white;
+	}
+
+	h1 {
+		font-size: 2.5rem;
+		margin-bottom: 0.5rem;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	}
+
+	p {
+		margin-bottom: 20px;
+		opacity: 0.9;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	}
+</style>
