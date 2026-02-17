@@ -17,6 +17,7 @@ site/.astro/
 # Test artifacts
 site/test-results/
 site/playwright-report/
+.playwright-mcp/
 
 # IDE
 .vscode/
