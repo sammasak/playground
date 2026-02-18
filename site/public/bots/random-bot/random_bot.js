@@ -2587,7 +2587,7 @@ function trampoline9(arg0) {
   
   let ret =  getBoard();
   endCurrentTask(0);
-  var {squares: v0_0, turn: v0_1, castlingRights: v0_2, enPassant: v0_3, halfmoveClock: v0_4, fullmoveNumber: v0_5 } = ret;
+  var {squares: v0_0, turn: v0_1, castlingRights: v0_2, enPassant: v0_3, halfmoveClock: v0_4, fullmoveNumber: v0_5, moveHistory: v0_6 } = ret;
   var vec5 = v0_0;
   var len5 = vec5.length;
   var result5 = realloc0(0, 0, 1, len5 * 3);
@@ -2695,6 +2695,29 @@ function trampoline9(arg0) {
   }
   dataView(memory0).setInt16(arg0 + 16, toUint16(v0_4), true);
   dataView(memory0).setInt16(arg0 + 18, toUint16(v0_5), true);
+  var vec12 = v0_6;
+  var len12 = vec12.length;
+  var result12 = realloc0(0, 0, 4, len12 * 16);
+  for (let i = 0; i < vec12.length; i++) {
+    const e = vec12[i];
+    const base = result12 + i * 16;var {uciMove: v9_0, resultingFen: v9_1 } = e;
+    
+    var encodeRes = _utf8AllocateAndEncode(v9_0, realloc0, memory0);
+    var ptr10= encodeRes.ptr;
+    var len10 = encodeRes.len;
+    
+    dataView(memory0).setUint32(base + 4, len10, true);
+    dataView(memory0).setUint32(base + 0, ptr10, true);
+    
+    var encodeRes = _utf8AllocateAndEncode(v9_1, realloc0, memory0);
+    var ptr11= encodeRes.ptr;
+    var len11 = encodeRes.len;
+    
+    dataView(memory0).setUint32(base + 12, len11, true);
+    dataView(memory0).setUint32(base + 8, ptr11, true);
+  }
+  dataView(memory0).setUint32(arg0 + 24, len12, true);
+  dataView(memory0).setUint32(arg0 + 20, result12, true);
   _debugLog('[iface="chess:bot/host@0.1.0", function="get-board"][Instruction::Return]', {
     funcName: 'get-board',
     paramCount: 0,
@@ -4985,7 +5008,7 @@ GlobalComponentAsyncLowers.define({
     isAsync: false,
     paramLiftFns: [],
     metadata: lowered_import_4_metadata,
-    resultLowerFns: [_lowerFlatList({ elemLowerFn: _lowerFlatStringUTF8, typeIdx: 1 })],
+    resultLowerFns: [_lowerFlatList({ elemLowerFn: _lowerFlatStringUTF8, typeIdx: 2 })],
     getCallbackFn: () => null,
     getPostReturnFn: () => null,
     isCancellable: false,
@@ -5008,7 +5031,7 @@ GlobalComponentAsyncLowers.define({
     isAsync: false,
     paramLiftFns: [],
     metadata: lowered_import_5_metadata,
-    resultLowerFns: [_lowerFlatRecord([{ field: 'squares', lowerFn: _lowerFlatList({ elemLowerFn: _lowerFlatOption.bind(null, 0), typeIdx: 0 }), align32: 4 },{ field: 'turn', lowerFn: _lowerFlatEnum.bind(null, 1), align32: 4 },{ field: 'castling-rights', lowerFn: _lowerFlatRecord([{ field: 'white-kingside', lowerFn: _lowerFlatBool, align32: 1 },{ field: 'white-queenside', lowerFn: _lowerFlatBool, align32: 1 },{ field: 'black-kingside', lowerFn: _lowerFlatBool, align32: 1 },{ field: 'black-queenside', lowerFn: _lowerFlatBool, align32: 1 },]), align32: 4 },{ field: 'en-passant', lowerFn: _lowerFlatOption.bind(null, 1), align32: 4 },{ field: 'halfmove-clock', lowerFn: _lowerFlatU16, align32: 4 },{ field: 'fullmove-number', lowerFn: _lowerFlatU16, align32: 4 },])],
+    resultLowerFns: [_lowerFlatRecord([{ field: 'squares', lowerFn: _lowerFlatList({ elemLowerFn: _lowerFlatOption.bind(null, 0), typeIdx: 0 }), align32: 4 },{ field: 'turn', lowerFn: _lowerFlatEnum.bind(null, 1), align32: 4 },{ field: 'castling-rights', lowerFn: _lowerFlatRecord([{ field: 'white-kingside', lowerFn: _lowerFlatBool, align32: 1 },{ field: 'white-queenside', lowerFn: _lowerFlatBool, align32: 1 },{ field: 'black-kingside', lowerFn: _lowerFlatBool, align32: 1 },{ field: 'black-queenside', lowerFn: _lowerFlatBool, align32: 1 },]), align32: 4 },{ field: 'en-passant', lowerFn: _lowerFlatOption.bind(null, 1), align32: 4 },{ field: 'halfmove-clock', lowerFn: _lowerFlatU16, align32: 4 },{ field: 'fullmove-number', lowerFn: _lowerFlatU16, align32: 4 },{ field: 'move-history', lowerFn: _lowerFlatList({ elemLowerFn: _lowerFlatRecord([{ field: 'uci-move', lowerFn: _lowerFlatStringUTF8, align32: 4 },{ field: 'resulting-fen', lowerFn: _lowerFlatStringUTF8, align32: 4 },]), typeIdx: 1 }), align32: 4 },])],
     getCallbackFn: () => null,
     getPostReturnFn: () => null,
     isCancellable: false,
@@ -5054,7 +5077,7 @@ GlobalComponentAsyncLowers.define({
     isAsync: false,
     paramLiftFns: [],
     metadata: lowered_import_7_metadata,
-    resultLowerFns: [_lowerFlatList({ elemLowerFn: _lowerFlatTuple.bind(null, 4), typeIdx: 2 })],
+    resultLowerFns: [_lowerFlatList({ elemLowerFn: _lowerFlatTuple.bind(null, 4), typeIdx: 3 })],
     getCallbackFn: () => null,
     getPostReturnFn: () => null,
     isCancellable: false,
@@ -5213,7 +5236,7 @@ GlobalComponentAsyncLowers.define({
     trampolineIdx: 18,
     componentIdx: 0,
     isAsync: false,
-    paramLiftFns: [_liftFlatBorrow.bind(null, 1),_liftFlatList.bind(null, 3)],
+    paramLiftFns: [_liftFlatBorrow.bind(null, 1),_liftFlatList.bind(null, 4)],
     metadata: lowered_import_14_metadata,
     resultLowerFns: [_lowerFlatResult([{ discriminant: 0, tag: 'ok', lowerFn: null, align32: null },{ discriminant: 1, tag: 'error', lowerFn: _lowerFlatVariant({ discriminantSizeBytes: 1, lowerMetas: [{ discriminant: 0, tag: 'last-operation-failed', lowerFn: _lowerFlatOwn.bind(null, 0), align32: 4, },{ discriminant: 1, tag: 'closed', lowerFn: null, align32: null, },] }), align32: 4 },])],
     getCallbackFn: () => null,
@@ -5259,7 +5282,7 @@ GlobalComponentAsyncLowers.define({
     trampolineIdx: 20,
     componentIdx: 0,
     isAsync: false,
-    paramLiftFns: [_liftFlatBorrow.bind(null, 1),_liftFlatList.bind(null, 3)],
+    paramLiftFns: [_liftFlatBorrow.bind(null, 1),_liftFlatList.bind(null, 4)],
     metadata: lowered_import_16_metadata,
     resultLowerFns: [_lowerFlatResult([{ discriminant: 0, tag: 'ok', lowerFn: null, align32: null },{ discriminant: 1, tag: 'error', lowerFn: _lowerFlatVariant({ discriminantSizeBytes: 1, lowerMetas: [{ discriminant: 0, tag: 'last-operation-failed', lowerFn: _lowerFlatOwn.bind(null, 0), align32: 4, },{ discriminant: 1, tag: 'closed', lowerFn: null, align32: null, },] }), align32: 4 },])],
     getCallbackFn: () => null,
@@ -5284,7 +5307,7 @@ GlobalComponentAsyncLowers.define({
     isAsync: false,
     paramLiftFns: [],
     metadata: lowered_import_17_metadata,
-    resultLowerFns: [_lowerFlatList({ elemLowerFn: _lowerFlatTuple.bind(null, 20), typeIdx: 4 })],
+    resultLowerFns: [_lowerFlatList({ elemLowerFn: _lowerFlatTuple.bind(null, 20), typeIdx: 5 })],
     getCallbackFn: () => null,
     getPostReturnFn: () => null,
     isCancellable: false,

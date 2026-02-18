@@ -1,14 +1,15 @@
-// Allow warnings only for generated code patterns, keep strict checks for our code
-#![allow(clippy::all)] // Generated wit-bindgen code triggers many clippy lints
+#[allow(clippy::all)]
+mod bindings {
+    wit_bindgen::generate!({
+        path: "../../wit/chess-bot",
+        world: "chess-bot",
+        generate_all,
+    });
+}
 
-wit_bindgen::generate!({
-    path: "../../wit",
-    world: "chess-bot",
-});
-
-use exports::chess::bot::bot::Guest;
-use chess::bot::host;
-use chess::bot::types::{Color, Move};
+use bindings::exports::chess::bot::bot::Guest;
+use bindings::chess::bot::host;
+use bindings::chess::types::types::Color;
 
 struct RandomBot;
 
@@ -22,32 +23,31 @@ impl Guest for RandomBot {
     }
 
     fn get_preferred_color() -> Option<Color> {
-        None // No preference
+        None
     }
 
     fn on_game_start() {
         host::log("Random Bot: Game started!");
     }
 
-    fn select_move() -> Move {
+    fn select_move() -> String {
         let moves = host::get_legal_moves();
         if moves.is_empty() {
             host::log("Random Bot: No legal moves available!");
             return String::new();
         }
 
-        // Simple deterministic "random" based on move count
         let board = host::get_board();
         let idx = (board.fullmove_number as usize + board.halfmove_clock as usize) % moves.len();
-        let selected = moves[idx].clone();
+        let selected = &moves[idx];
 
-        host::log(&format!("Random Bot: Selected move {}", selected));
-        selected
+        host::log(&format!("Random Bot: Selected move {selected}"));
+        selected.clone()
     }
 
-    fn suggest_move() -> Move {
+    fn suggest_move() -> String {
         Self::select_move()
     }
 }
 
-export!(RandomBot);
+bindings::export!(RandomBot with_types_in bindings);

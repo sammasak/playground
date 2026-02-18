@@ -82,6 +82,9 @@ test.describe('Chess Game', () => {
     await page.locator('[data-square="e2"]').click();
     await page.locator('[data-square="e4"]').click();
 
+    // Accept the confirmation dialog that appears when resetting mid-game
+    page.on('dialog', dialog => dialog.accept());
+
     // Click reset button
     const resetBtn = page.locator('#reset-btn');
     await resetBtn.click();

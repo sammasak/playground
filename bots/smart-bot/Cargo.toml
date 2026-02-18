@@ -1,0 +1,25 @@
+[package]
+name = "smart-bot"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.41"
+
+[package.metadata.component]
+package = "chess:smart-bot"
+
+[package.metadata.component.target]
+path = "../../wit/chess-bot"
+world = "chess-bot"
+
+[package.metadata.component.target.dependencies]
+"chess:types" = { path = "../../wit/chess-types" }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"

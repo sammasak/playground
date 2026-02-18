@@ -1,0 +1,24 @@
+package chess:engine@0.1.0;
+
+interface engine {
+    use chess:types/types@0.1.0.{board-state, move, game-result, color, piece, square, engine-error, move-history-entry};
+
+    resource game {
+        constructor();
+        from-fen: static func(fen: string) -> result<game, engine-error>;
+        get-fen: func() -> string;
+        get-board-state: func() -> board-state;
+        get-legal-moves: func() -> list<move>;
+        make-move: func(uci: move) -> result<_, engine-error>;
+        get-game-result: func() -> game-result;
+        is-check: func() -> bool;
+        get-turn: func() -> color;
+        get-piece-at: func(sq: square) -> option<piece>;
+        get-move-history: func() -> list<move-history-entry>;
+        reset: func();
+    }
+}
+
+world chess-engine {
+    export engine;
+}

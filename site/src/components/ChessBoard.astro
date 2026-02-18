@@ -4,52 +4,35 @@
 const rawBase = import.meta.env.BASE_URL || '/';
 const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
 
-const witCode = `// WIT interface for chess bot plugins
-package chess:bot@0.1.0;
+const witCode = `// Shared types (chess:types@0.1.0)
+package chess:types@0.1.0;
 
 interface types {
-    enum piece-type {
-        pawn, knight, bishop, rook, queen, king
-    }
+    enum piece-type { pawn, knight, bishop, rook, queen, king }
     enum color { white, black }
-
-    record piece {
-        piece-type: piece-type,
-        color: color,
-    }
-
+    record piece { piece-type: piece-type, color: color }
     type square = u8;    // 0=a1, 63=h8
     type move = string;  // UCI format: "e2e4", "e7e8q"
-
-    record move-history-entry {
-        uci-move: move,
-        resulting-fen: string,
+    record move-history-entry { uci-move: move, resulting-fen: string }
+    record castling {
+        white-kingside: bool, white-queenside: bool,
+        black-kingside: bool, black-queenside: bool,
     }
-
     record board-state {
-        squares: list<option<piece>>,
-        turn: color,
-        castling-rights: castling,
-        en-passant: option<square>,
-        halfmove-clock: u16,
-        fullmove-number: u16,
+        squares: list<option<piece>>, turn: color,
+        castling-rights: castling, en-passant: option<square>,
+        halfmove-clock: u16, fullmove-number: u16,
         move-history: list<move-history-entry>,
     }
-
-    record castling {
-        white-kingside: bool,
-        white-queenside: bool,
-        black-kingside: bool,
-        black-queenside: bool,
-    }
-
-    enum game-result {
-        in-progress, checkmate, stalemate, draw,
-    }
+    enum game-result { in-progress, checkmate, stalemate, draw }
+    enum engine-error { invalid-fen, illegal-move, game-over }
 }
 
+// Bot plugin interface (chess:bot@0.1.0)
+package chess:bot@0.1.0;
+
 interface host {
-    use types.{board-state, move, game-result};
+    use chess:types/types@0.1.0.{board-state, move, game-result};
     get-board: func() -> board-state;
     get-legal-moves: func() -> list<move>;
     is-check: func() -> bool;
@@ -59,7 +42,7 @@ interface host {
 }
 
 interface bot {
-    use types.{move, color};
+    use chess:types/types@0.1.0.{move, color};
     get-name: func() -> string;
     get-description: func() -> string;
     get-preferred-color: func() -> option<color>;
@@ -73,90 +56,174 @@ world chess-bot {
     export bot;
 }`;
 
-const pythonExample = `# Host functions (same API as compiled WASM components):
-#   get_board()       -> board state dict with move history
-#   get_legal_moves() -> list of UCI strings ["e2e4", ...]
-#   is_check()        -> bool
-#   get_fen()         -> FEN string
-#   log(msg)          -> print to bot log
-#   _pseudo_random(n) -> int in [0, n) for variety
+const pythonExample = `# Smart Bot — captures, center control, development.
+# Host functions: get_board(), get_legal_moves(),
+#   is_check(), get_fen(), log(msg)
+
+# Material values for MVV-LVA ordering
+PIECE_VALUES = {"queen": 9, "rook": 5, "bishop": 3, "knight": 3, "pawn": 1, "king": 0}
+
+# Board index: rank * 8 + file, where a1=0, h8=63
+CENTER = {27, 28, 35, 36}  # d4, e4, d5, e5
+EXTENDED_CENTER = {r * 8 + f for r in range(2, 6) for f in range(2, 6)}
+
+def parse_uci(uci):
+    if len(uci) < 4:
+        return None
+    from_file = ord(uci[0]) - ord('a')
+    from_rank = int(uci[1]) - 1
+    to_file = ord(uci[2]) - ord('a')
+    to_rank = int(uci[3]) - 1
+    if not (0 <= from_file < 8 and 0 <= from_rank < 8
+            and 0 <= to_file < 8 and 0 <= to_rank < 8):
+        return None
+    return (from_rank * 8 + from_file, to_rank * 8 + to_file)
+
+def score_move(uci, board):
+    parsed = parse_uci(uci)
+    if parsed is None:
+        return 0
+    from_idx, to_idx = parsed
+    score = 0
+
+    target = board['squares'][to_idx]
+    if target is not None:
+        score += 100 + PIECE_VALUES.get(target['pieceType'], 0) * 10
+
+    if len(uci) > 4:
+        promo = uci[4]
+        if promo == 'q':
+            score += 90
+        elif promo == 'r':
+            score += 50
+        elif promo in ('b', 'n'):
+            score += 30
+
+    if to_idx in CENTER:
+        score += 15
+    elif to_idx in EXTENDED_CENTER:
+        score += 5
+
+    if board['fullmove_number'] < 10:
+        from_piece = board['squares'][from_idx]
+        if from_piece is not None and from_piece['pieceType'] != 'pawn':
+            score += 8
+
+    return score
+
+def get_name():
+    return "Smart Bot (Python)"
+
+def get_description():
+    return "Prefers captures and center control."
+
+def on_game_start():
+    log("Smart Bot: Ready to play!")
 
 def select_move():
-    board = get_board()
     moves = get_legal_moves()
+    if not moves:
+        return ""
 
-    # Strategy: prefer captures, then center control
-    best = moves[_pseudo_random(len(moves))]
-    center = [27, 28, 35, 36]  # d4, e4, d5, e5
+    board = get_board()
+    scored = [(score_move(m, board), m) for m in moves]
+    best_score = max(s for s, _ in scored)
+    tied = [m for s, m in scored if s == best_score]
 
-    for m in moves:
-        target_file = ord(m[2]) - ord('a')
-        target_rank = int(m[3]) - 1
-        target_idx = target_rank * 8 + target_file
+    idx = (board['fullmove_number'] + board['halfmove_clock']) % len(tied)
+    selected = tied[idx]
 
-        # Always take captures
-        if board['squares'][target_idx] is not None:
-            log("Capturing with " + m)
-            return m
+    log("Smart Bot: " + selected + " (score " + str(best_score) + ")")
+    return selected
 
-        # Prefer center squares
-        if target_idx in center:
-            best = m
+def suggest_move():
+    return select_move()`;
 
-    return best`;
-
-const componentizePyExample = `# bot.py — compile with: componentize-py -w chess-bot componentize bot -o bot.wasm
-from chess_bot.imports.host import (
-    get_board, get_legal_moves, is_check, log
-)
-from chess_bot.types import Move, Color
-import random  # available in full Python, not in playground
-
-class Bot:
-    def get_name(self) -> str:
-        return "My Python Bot"
-
-    def get_description(self) -> str:
-        return "A strategic Python chess bot"
-
-    def get_preferred_color(self) -> Color | None:
-        return None
-
-    def on_game_start(self) -> None:
-        log("Let's play!")
-
-    def select_move(self) -> Move:
-        board = get_board()
-        moves = get_legal_moves()
-
-        # Prefer captures
-        for m in moves:
-            tf = ord(m[2]) - ord('a')
-            tr = int(m[3]) - 1
-            if board.squares[tr * 8 + tf] is not None:
-                return m
-
-        return random.choice(moves)
-
-    def suggest_move(self) -> Move:
-        return self.select_move()`;
 ---
 
-<div id="chess-container">
+<div id="chess-container" data-base={base}>
   <div id="game-info">
     <div id="turn-indicator">White to move</div>
-    <div id="game-status"></div>
+    <div id="game-status" aria-live="polite"></div>
   </div>
 
   <div id="main-content">
     <div id="board-column">
       <div id="board-section">
-        <div id="chess-board"></div>
+        <!-- Black player bar (plays from top) -->
+        <div class="player-bar player-bar-black">
+          <label for="black-player" class="player-label">Black:</label>
+          <select id="black-player">
+            <option value="human">Human</option>
+            <option value="random-bot">Random Bot (Rust)</option>
+            <option value="smart-bot">Smart Bot (Rust)</option>
+            <option value="python-smart-bot">Smart Bot (Python)</option>
+            <option value="python-bot">Python Editor Bot</option>
+            <option value="upload">Upload Bot...</option>
+          </select>
+          <div id="black-bot-mode" class="bot-mode" style="display: none;">
+            <label><input type="radio" name="black-mode" value="auto"> Auto-play</label>
+            <label><input type="radio" name="black-mode" value="suggest" checked> Suggest</label>
+          </div>
+        </div>
+
+        <!-- Board with coordinate labels -->
+        <div id="board-with-coords">
+          <div id="rank-labels">
+            <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+          </div>
+          <div id="chess-board"></div>
+          <div id="file-labels-spacer"></div>
+          <div id="file-labels">
+            <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+          </div>
+        </div>
+
+        <!-- White player bar (plays from bottom) -->
+        <div class="player-bar player-bar-white">
+          <label for="white-player" class="player-label">White:</label>
+          <select id="white-player">
+            <option value="human">Human</option>
+            <option value="random-bot">Random Bot (Rust)</option>
+            <option value="smart-bot">Smart Bot (Rust)</option>
+            <option value="python-smart-bot">Smart Bot (Python)</option>
+            <option value="python-bot">Python Editor Bot</option>
+            <option value="upload">Upload Bot...</option>
+          </select>
+          <div id="white-bot-mode" class="bot-mode" style="display: none;">
+            <label><input type="radio" name="white-mode" value="auto"> Auto-play</label>
+            <label><input type="radio" name="white-mode" value="suggest" checked> Suggest</label>
+          </div>
+        </div>
+
         <div id="controls">
-          <button id="reset-btn">New Game</button>
-          <button id="undo-btn" disabled>Undo</button>
+          <button id="reset-btn" class="btn-danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>New Game</button>
+          <button id="undo-btn" class="btn-secondary" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>Undo</button>
         </div>
       </div>
+
+      <!-- Game controls (relocated from Controls tab) -->
+      <div id="game-controls">
+        <div id="bot-vs-bot-controls" style="display: none;">
+          <button id="start-match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start Bot Match</button>
+          <button id="pause-match" class="btn-secondary" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
+          <label>
+            Speed: <input type="range" id="match-speed" min="100" max="2000" value="500">
+            <span id="speed-label">500ms</span>
+          </label>
+        </div>
+
+        <div id="suggested-move" style="display: none;">
+          <strong>Suggested move:</strong> <span id="suggestion"></span>
+          <button id="play-suggestion"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Play it</button>
+        </div>
+
+        <div id="bot-log">
+          <h3>Bot Log</h3>
+          <div id="log-content"></div>
+        </div>
+      </div>
+
       <div id="move-history">
         <h3>Move History</h3>
         <div id="moves-list"></div>
@@ -167,22 +234,73 @@ class Bot:
       <div id="tab-bar">
         <button class="tab active" data-tab="wit-tab">Bot Interface</button>
         <button class="tab" data-tab="editor-tab">Python Editor</button>
-        <button class="tab" data-tab="controls-tab">Controls</button>
       </div>
 
       <div id="tab-content">
         <!-- WIT Interface Tab -->
         <div id="wit-tab" class="tab-pane active">
           <div class="wit-section">
-            <h4>WIT Interface Definition</h4>
-            <p class="wit-desc">Bots receive the full board state (with move history) and legal moves, then return a UCI move string.</p>
-            <pre id="wit-code" class="code-block">{witCode}</pre>
+            <h4>Example Bots</h4>
+            <div class="bot-cards">
+              <div class="bot-card">
+                <div class="bot-card-header">
+                  <strong>Random Bot</strong>
+                  <span class="bot-lang">Rust</span>
+                </div>
+                <p class="bot-card-desc">Picks a random legal move.</p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="white">Load White</button>
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="black">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/random-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link">Source</a>
+                </div>
+              </div>
+              <div class="bot-card">
+                <div class="bot-card-header">
+                  <strong>Smart Bot</strong>
+                  <span class="bot-lang">Rust</span>
+                </div>
+                <p class="bot-card-desc">Prefers captures and center control.</p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="white">Load White</button>
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="black">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link">Source</a>
+                </div>
+              </div>
+              <div class="bot-card">
+                <div class="bot-card-header">
+                  <strong>Smart Bot</strong>
+                  <span class="bot-lang">Python</span>
+                </div>
+                <p class="bot-card-desc">Same strategy, written in Python.</p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="white">Load White</button>
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="black">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/python-smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link">Source</a>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="wit-section">
-            <h4>Build a Bot with Python</h4>
-            <p class="wit-desc">Compile to a WASM component with <a href="https://github.com/bytecodealliance/componentize-py" target="_blank">componentize-py</a>, or try the playground editor.</p>
-            <pre class="code-block python-block">{componentizePyExample}</pre>
+            <h4>Upload Your Bot</h4>
+            <div id="upload-dropzone">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; color: var(--color-text-light);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <p>Drop a <code>.wasm</code> bot component here<br>or click to browse</p>
+              <p class="upload-note">Must implement <code>chess:bot@0.1.0</code></p>
+            </div>
+            <div id="upload-status" style="display: none;"></div>
+          </div>
+
+          <div class="wit-section">
+            <details>
+              <summary class="wit-summary">WIT Reference</summary>
+              <p class="wit-desc">Bots receive the full board state (with move history) and legal moves, then return a UCI move string.</p>
+              <pre id="wit-code" class="code-block">{witCode}</pre>
+            </details>
+          </div>
+
+          <div class="wit-section">
+            <button class="tab-link" data-tab="editor-tab">Open Python Editor →</button>
           </div>
         </div>
 
@@ -190,65 +308,15 @@ class Bot:
         <div id="editor-tab" class="tab-pane" style="display: none;">
           <div class="editor-header">
             <h4>Python Bot Playground</h4>
-            <p class="editor-desc">Same host API as compiled components. Write <code>select_move()</code> and test instantly.</p>
-            <p class="editor-desc"><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank">Monty</a> — secure Python subset in WASM</em></p>
+            <p class="editor-desc">Implement the WIT bot interface as Python functions. Host functions are globals.</p>
+            <p class="editor-desc"><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank" rel="noopener noreferrer">Monty</a> — secure Python subset in WASM</em></p>
           </div>
-          <textarea id="python-code" spellcheck="false">{pythonExample}</textarea>
+          <div id="python-code-editor" data-initial-code={pythonExample}></div>
           <div class="editor-actions">
-            <button id="test-python">Test Code</button>
-            <button id="apply-python">Apply to Bot</button>
+            <button id="test-python"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Test Code</button>
+            <button id="apply-python"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Apply to Bot</button>
           </div>
-          <div id="python-error" style="display: none;"></div>
-        </div>
-
-        <!-- Controls Tab -->
-        <div id="controls-tab" class="tab-pane" style="display: none;">
-          <div class="controls-section">
-            <h4>White Player</h4>
-            <select id="white-player">
-              <option value="human">Human</option>
-              <option value="random-bot">Random Bot</option>
-              <option value="python-bot">Python Bot</option>
-              <option value="upload">Upload Bot...</option>
-            </select>
-            <div id="white-bot-mode" class="bot-mode" style="display: none;">
-              <label><input type="radio" name="white-mode" value="auto" checked> Auto-play</label>
-              <label><input type="radio" name="white-mode" value="suggest"> Suggest moves</label>
-            </div>
-          </div>
-
-          <div class="controls-section">
-            <h4>Black Player</h4>
-            <select id="black-player">
-              <option value="human">Human</option>
-              <option value="random-bot">Random Bot</option>
-              <option value="python-bot">Python Bot</option>
-              <option value="upload">Upload Bot...</option>
-            </select>
-            <div id="black-bot-mode" class="bot-mode" style="display: none;">
-              <label><input type="radio" name="black-mode" value="auto" checked> Auto-play</label>
-              <label><input type="radio" name="black-mode" value="suggest"> Suggest moves</label>
-            </div>
-          </div>
-
-          <div id="bot-vs-bot-controls" style="display: none;">
-            <button id="start-match">Start Bot Match</button>
-            <button id="pause-match" disabled>Pause</button>
-            <label>
-              Speed: <input type="range" id="match-speed" min="100" max="2000" value="500">
-              <span id="speed-label">500ms</span>
-            </label>
-          </div>
-
-          <div id="suggested-move" style="display: none;">
-            <strong>Suggested move:</strong> <span id="suggestion"></span>
-            <button id="play-suggestion">Play it</button>
-          </div>
-
-          <div id="bot-log">
-            <h4>Bot Log</h4>
-            <div id="log-content"></div>
-          </div>
+          <div id="python-feedback" style="display: none;"></div>
         </div>
       </div>
     </div>
@@ -258,32 +326,105 @@ class Bot:
 </div>
 
 <style is:global>
+  /* Design Tokens */
+  :root {
+    --color-primary: #3498db;
+    --color-primary-hover: #2980b9;
+    --color-success: #28a745;
+    --color-success-hover: #218838;
+    --color-danger: #e74c3c;
+    --color-danger-hover: #c0392b;
+    --color-purple: #6f42c1;
+    --color-purple-hover: #5a32a3;
+    --color-text: #333;
+    --color-text-secondary: #555;
+    --color-text-muted: #666;
+    --color-text-light: #999;
+    --color-border: #ddd;
+    --color-border-dark: #333;
+    --color-disabled: #bdc3c7;
+    --color-surface: #f5f5f5;
+    --color-surface-alt: #fafafa;
+    --color-card-bg: #fff;
+    --color-board-light: #f0d9b5;
+    --color-board-dark: #b58863;
+    --color-board-frame: #6d4c2e;
+    --color-board-frame-shadow: #5a3e24;
+    --color-selected: #7fa650;
+    --color-suggested: #9dc3e6;
+    --color-last-move: #cdd26a;
+    --color-accent-blue-bg: #e8f4fd;
+    --color-accent-blue-hover: #f0f7ff;
+    --color-code-bg: #1e1e1e;
+    --color-code-text: #d4d4d4;
+    --color-code-inline-bg: #e8e8e8;
+    --color-success-bg: #d4edda;
+    --color-success-border: #c3e6cb;
+    --color-success-text: #155724;
+    --color-error-bg: #f8d7da;
+    --color-error-border: #f5c6cb;
+    --color-error-text: #721c24;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+  }
+
   #chess-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 15px;
+    padding: 8px 15px;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
   }
 
   #game-info {
-    margin-bottom: 12px;
+    margin-bottom: 6px;
     text-align: center;
   }
 
   #turn-indicator {
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     font-weight: bold;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
 
   #game-status {
-    font-size: 1.1rem;
-    color: #e74c3c;
-    min-height: 1.4em;
+    font-size: 0.95rem;
+    color: var(--color-card-bg);
+    min-height: 1.2em;
+  }
+
+  #game-status:not(:empty) {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 2px 12px;
+    border-radius: 12px;
+    display: inline-block;
+  }
+
+  #game-status.game-over {
+    font-size: 1.2rem;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--color-text);
+    padding: 6px 20px;
+    border-radius: var(--radius-md);
+    animation: game-over-pulse 1s ease-in-out;
+  }
+
+  @keyframes game-over-pulse {
+    0% { transform: scale(0.9); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
   }
 
   #main-content {
@@ -298,6 +439,7 @@ class Bot:
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
+    width: 464px;
   }
 
   #board-section {
@@ -308,37 +450,139 @@ class Bot:
 
   #chess-board {
     display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    border: 3px solid #333;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    grid-template-columns: repeat(8, 52px);
+    grid-template-rows: repeat(8, 52px);
+  }
+
+  /* Board with coordinate labels — walnut frame */
+  #board-with-coords {
+    display: grid;
+    grid-template-columns: 24px 416px;
+    grid-template-rows: 416px auto;
+    background-color: var(--color-board-frame);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow:
+      0 0 0 3px var(--color-board-frame-shadow),
+      0 4px 20px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+  }
+
+  #rank-labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  #rank-labels span {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-board-light);
+    display: flex;
+    align-items: center;
+    height: 52px;
+  }
+
+  #file-labels-spacer {
+    grid-row: 2;
+    grid-column: 1;
+    background-color: var(--color-board-frame);
+  }
+
+  #file-labels {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    grid-row: 2;
+    grid-column: 2;
+    height: 24px;
+  }
+
+  #file-labels span {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-board-light);
+    width: 52px;
+    text-align: center;
+  }
+
+  /* Player bars */
+  .player-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    margin-bottom: 6px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .player-bar-black {
+    border-left: 4px solid var(--color-text);
+  }
+
+  .player-bar-white {
+    border-left: 4px solid var(--color-board-dark);
+    margin-bottom: 0;
+    margin-top: var(--space-1);
+  }
+
+  .player-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .player-bar select {
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    font-size: 0.85rem;
+  }
+
+  .player-bar .bot-mode {
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .player-bar .bot-mode label {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    color: var(--color-text);
   }
 
   .square {
-    width: 60px;
-    height: 60px;
+    width: 52px;
+    height: 52px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
+    font-size: 36px;
     cursor: pointer;
     user-select: none;
     transition: background-color 0.15s ease;
   }
 
-  .square.light { background-color: #f0d9b5; }
-  .square.dark { background-color: #b58863; }
-  .square.selected { background-color: #7fa650 !important; }
-  .square.suggested { background-color: #9dc3e6 !important; }
-  .square.check { background-color: #e74c3c !important; }
-  .square.last-move { background-color: #cdd26a !important; }
+  .square.light { background-color: var(--color-board-light); }
+  .square.dark { background-color: var(--color-board-dark); }
+  .square.selected { background-color: var(--color-selected) !important; }
+  .square.suggested { background-color: var(--color-suggested) !important; }
+  .square.check { background-color: var(--color-danger) !important; }
+  .square.last-move { background-color: var(--color-last-move) !important; }
 
   .square.legal-move { position: relative; }
   .square.legal-move::after {
     content: '';
     position: absolute;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 50%;
   }
@@ -346,91 +590,137 @@ class Bot:
   .square.legal-capture::after {
     content: '';
     position: absolute;
-    width: 54px;
-    height: 54px;
+    width: 46px;
+    height: 46px;
     border: 3px solid rgba(0, 0, 0, 0.2);
     border-radius: 50%;
     background: none;
   }
 
   #controls {
-    margin-top: 12px;
+    margin-top: 6px;
     display: flex;
     gap: 10px;
   }
 
   button {
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     font-size: 0.9rem;
+    font-family: inherit;
     cursor: pointer;
     border: none;
-    border-radius: 5px;
-    background-color: #3498db;
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary);
     color: white;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, box-shadow 0.2s;
   }
 
   button:hover:not(:disabled) {
-    background-color: #2980b9;
+    background-color: var(--color-primary-hover);
   }
 
   button:disabled {
-    background-color: #bdc3c7;
+    background-color: var(--color-disabled);
     cursor: not-allowed;
   }
 
+  /* Button variants */
+  .btn-secondary {
+    background-color: transparent;
+    color: var(--color-primary);
+    border: 1.5px solid var(--color-primary);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-primary);
+    color: white;
+  }
+
+  .btn-danger {
+    background-color: var(--color-danger);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: var(--color-danger-hover);
+  }
+
+  /* Focus visible for all interactive elements */
+  button:focus-visible,
+  select:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
   #move-history {
-    margin-top: 16px;
-    width: 486px;
-    color: #333;
-    background: white;
-    padding: 12px;
-    border-radius: 8px;
+    margin-top: 8px;
+    width: 100%;
+    color: var(--color-text);
+    background: var(--color-card-bg);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   #move-history h3 {
-    margin: 0 0 8px 0;
-    font-size: 0.95rem;
-    color: #555;
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
   }
 
   #moves-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    max-height: 100px;
+    gap: 3px;
+    max-height: 150px;
     overflow-y: auto;
-    padding: 8px;
-    background: #f5f5f5;
-    border-radius: 5px;
+    padding: var(--space-2);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
     min-height: 30px;
+  }
+
+  #moves-list:empty::before {
+    content: 'No moves yet \2014 click a piece to start playing';
+    color: var(--color-text-light);
+    font-size: 0.8rem;
+    font-style: italic;
   }
 
   .move-entry {
     padding: 2px 6px;
-    background: white;
-    border-radius: 3px;
+    background: var(--color-card-bg);
+    border-radius: var(--radius-sm);
     font-family: monospace;
     font-size: 0.85rem;
+  }
+
+  /* Game controls (below board) */
+  #game-controls {
+    width: 100%;
+    margin-top: var(--space-2);
+    background: var(--color-card-bg);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    color: var(--color-text);
   }
 
   /* Side Panel */
   #side-panel {
     flex: 1;
-    min-width: 0;
-    background: white;
-    border-radius: 10px;
+    min-width: 400px;
+    background: var(--color-card-bg);
+    border-radius: var(--radius-xl);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    max-height: 680px;
-    color: #333;
+    color: var(--color-text);
   }
 
   #tab-bar {
     display: flex;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--color-border);
     padding: 0;
     flex-shrink: 0;
   }
@@ -439,7 +729,7 @@ class Bot:
     flex: 1;
     padding: 12px 16px;
     background: transparent;
-    color: #666;
+    color: var(--color-text-muted);
     border: none;
     border-radius: 0;
     font-size: 0.9rem;
@@ -450,12 +740,12 @@ class Bot:
   }
 
   .tab:hover {
-    color: #333;
-    background: #f5f5f5;
+    color: var(--color-text);
+    background: var(--color-surface);
   }
 
   .tab.active {
-    color: #3498db;
+    color: var(--color-primary);
     background: transparent;
   }
 
@@ -466,7 +756,7 @@ class Bot:
     left: 0;
     right: 0;
     height: 2px;
-    background: #3498db;
+    background: var(--color-primary);
   }
 
   #tab-content {
@@ -491,18 +781,25 @@ class Bot:
   .wit-section h4 {
     margin: 0 0 6px 0;
     font-size: 0.95rem;
-    color: #333;
+    color: var(--color-text);
+  }
+
+  .wit-summary {
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--color-text);
   }
 
   .wit-desc {
     font-size: 0.85rem;
-    color: #666;
+    color: var(--color-text-muted);
     margin: 0 0 10px 0;
     line-height: 1.5;
   }
 
   .wit-desc a {
-    color: #3498db;
+    color: var(--color-primary);
     text-decoration: none;
   }
 
@@ -511,10 +808,10 @@ class Bot:
   }
 
   .code-block {
-    background: #1e1e1e;
-    color: #d4d4d4;
+    background: var(--color-code-bg);
+    color: var(--color-code-text);
     padding: 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
     font-size: 12px;
     line-height: 1.5;
@@ -525,8 +822,136 @@ class Bot:
     overflow-y: auto;
   }
 
-  .python-block {
-    max-height: 300px;
+  .tab-link {
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .tab-link:hover {
+    background: var(--color-primary-hover);
+  }
+
+  /* Bot Cards */
+  .bot-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bot-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    background: var(--color-surface-alt);
+  }
+
+  .bot-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .bot-lang {
+    font-size: 0.7rem;
+    background: var(--color-accent-blue-bg);
+    color: var(--color-primary-hover);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .bot-card-desc {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin: 0 0 8px 0;
+  }
+
+  .bot-card-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .bot-load-btn {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-card-bg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .bot-load-btn:hover {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .bot-source-link {
+    font-size: 0.75rem;
+    color: var(--color-text-light);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    margin-left: auto;
+  }
+
+  .bot-source-link:hover {
+    color: var(--color-primary);
+  }
+
+  /* Upload Dropzone */
+  #upload-dropzone {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+  }
+
+  #upload-dropzone:hover,
+  #upload-dropzone.drag-over {
+    border-color: var(--color-primary);
+    background: var(--color-accent-blue-hover);
+  }
+
+  #upload-dropzone p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+  }
+
+  .upload-note {
+    margin-top: 6px !important;
+    font-size: 0.75rem !important;
+    color: var(--color-text-light) !important;
+  }
+
+  #upload-status {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: 0.8rem;
+  }
+
+  #upload-status.success {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+  }
+
+  #upload-status.error {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
   }
 
   /* Editor Tab */
@@ -541,13 +966,13 @@ class Bot:
 
   .editor-desc {
     font-size: 0.85rem;
-    color: #666;
+    color: var(--color-text-muted);
     margin: 0 0 4px 0;
     line-height: 1.4;
   }
 
   .editor-desc code {
-    background: #e8e8e8;
+    background: var(--color-code-inline-bg);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: monospace;
@@ -555,7 +980,7 @@ class Bot:
   }
 
   .editor-desc a {
-    color: #3498db;
+    color: var(--color-primary);
     text-decoration: none;
   }
 
@@ -563,20 +988,20 @@ class Bot:
     text-decoration: underline;
   }
 
-  #python-code {
+  #python-code-editor {
     width: 100%;
-    height: 320px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-    font-size: 13px;
-    padding: 12px;
-    border: 1px solid #333;
-    border-radius: 6px;
-    resize: vertical;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    line-height: 1.5;
-    tab-size: 4;
-    box-sizing: border-box;
+    height: 450px;
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  #python-code-editor .cm-editor {
+    height: 100%;
+  }
+
+  #python-code-editor .cm-scroller {
+    overflow: auto;
   }
 
   .editor-actions {
@@ -586,82 +1011,91 @@ class Bot:
   }
 
   #test-python {
-    background: #28a745;
+    background: var(--color-success);
   }
 
   #test-python:hover {
-    background: #218838;
+    background: var(--color-success-hover);
   }
 
   #apply-python {
-    background: #6f42c1;
+    background: var(--color-purple);
   }
 
   #apply-python:hover {
-    background: #5a32a3;
+    background: var(--color-purple-hover);
   }
 
-  #python-error {
-    margin-top: 10px;
-    padding: 10px;
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    border-radius: 5px;
-    color: #721c24;
+  #python-feedback {
+    margin-top: var(--space-2);
+    padding: var(--space-2);
+    background: var(--color-error-bg);
+    border: 1px solid var(--color-error-border);
+    border-radius: var(--radius-md);
+    color: var(--color-error-text);
     font-family: monospace;
     font-size: 0.85rem;
   }
 
-  #python-error.success {
-    background: #d4edda;
-    border-color: #c3e6cb;
-    color: #155724;
+  #python-feedback.result-success {
+    background: var(--color-success-bg);
+    border-color: var(--color-success-border);
+    color: var(--color-success-text);
   }
 
-  /* Controls Tab */
-  .controls-section {
-    margin-bottom: 16px;
-    padding: 12px;
-    background: #f5f5f5;
-    border-radius: 6px;
-  }
-
-  .controls-section h4 {
-    margin: 0 0 8px 0;
-    font-size: 0.9rem;
-    color: #555;
-  }
-
-  .controls-section select {
-    width: 100%;
-    padding: 8px;
-    border-radius: 5px;
-    border: 1px solid #ddd;
-    font-size: 0.95rem;
+  #python-feedback.result-error {
+    background: var(--color-error-bg);
+    border: 1px solid var(--color-error-border);
+    color: var(--color-error-text);
   }
 
   .bot-mode {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    margin-top: 0;
+    display: inline-flex;
+    gap: 0;
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
   }
 
   .bot-mode label {
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     cursor: pointer;
+    padding: 2px 8px;
+    transition: background-color 0.15s, color 0.15s;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .bot-mode label:has(input:checked),
+  .bot-mode label.checked {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .bot-mode input[type="radio"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   #bot-vs-bot-controls {
-    margin-bottom: 16px;
-    padding: 12px;
-    background: #e8f4ea;
-    border-radius: 6px;
+    margin-bottom: var(--space-4);
+    padding: var(--space-3);
+    background: var(--color-accent-blue-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-primary);
   }
 
   #bot-vs-bot-controls button {
     margin-bottom: 8px;
-    width: 100%;
   }
 
   #bot-vs-bot-controls label {
@@ -672,39 +1106,87 @@ class Bot:
   }
 
   #suggested-move {
-    margin-bottom: 16px;
-    padding: 12px;
-    background: #fff3cd;
-    border-radius: 6px;
-    border: 1px solid #ffc107;
+    margin-bottom: var(--space-4);
+    padding: var(--space-3);
+    background: var(--color-accent-blue-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-primary);
   }
 
   #suggested-move button {
-    margin-top: 8px;
+    margin-top: var(--space-2);
     width: 100%;
-    background-color: #28a745;
+    background-color: var(--color-success);
   }
 
-  #bot-log h4 {
-    margin: 0 0 8px 0;
-    font-size: 0.9rem;
-    color: #555;
+  #suggested-move button:hover:not(:disabled) {
+    background-color: var(--color-success-hover);
+  }
+
+  #bot-log h3 {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
   }
 
   #log-content {
     font-family: monospace;
-    font-size: 0.8rem;
-    background: #f5f5f5;
-    padding: 10px;
-    border-radius: 5px;
-    max-height: 200px;
+    font-size: 0.75rem;
+    background: var(--color-surface);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    max-height: 100px;
     overflow-y: auto;
-    min-height: 40px;
+    min-height: 30px;
+  }
+
+  #log-content:empty::before {
+    content: 'Load a bot to see activity here';
+    color: var(--color-text-light);
+    font-family: system-ui, sans-serif;
+    font-size: 0.8rem;
+    font-style: italic;
   }
 
   .log-entry {
     margin-bottom: 3px;
-    color: #555;
+    color: var(--color-text-secondary);
+  }
+
+  /* Loading states */
+  .loading-spinner {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 416px;
+    color: var(--color-text-muted);
+    font-size: 1rem;
+  }
+
+  .loading-spinner::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: var(--space-2);
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-error {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 416px;
+    color: var(--color-danger);
+    font-size: 0.9rem;
   }
 
   /* Promotion Modal */
@@ -722,53 +1204,143 @@ class Bot:
   }
 
   .promotion-choices {
-    background: white;
+    background: var(--color-card-bg);
     padding: 20px;
-    border-radius: 10px;
+    border-radius: var(--radius-xl);
     display: flex;
     gap: 10px;
   }
 
   .promotion-choice {
-    width: 60px;
-    height: 60px;
-    font-size: 40px;
+    width: 52px;
+    height: 52px;
+    font-size: 36px;
     cursor: pointer;
-    border: 2px solid #333;
-    border-radius: 5px;
-    background: #f0d9b5;
+    border: 2px solid var(--color-text);
+    border-radius: var(--radius-sm);
+    background: var(--color-board-light);
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   .promotion-choice:hover {
-    background: #7fa650;
+    background: var(--color-selected);
+  }
+
+  /* Responsive: tablet and below */
+  @media (max-width: 900px) {
+    #main-content {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #board-column {
+      width: 100%;
+      max-width: 464px;
+    }
+
+    #side-panel {
+      min-width: 0;
+      width: 100%;
+      max-width: 600px;
+    }
+  }
+
+  /* Responsive: mobile */
+  @media (max-width: 500px) {
+    #chess-container {
+      padding: 4px 8px;
+    }
+
+    #board-with-coords {
+      grid-template-columns: 20px calc(100vw - 44px);
+      grid-template-rows: calc(100vw - 44px) auto;
+      padding: 3px;
+    }
+
+    #chess-board {
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+    }
+
+    .square {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+      font-size: min(36px, 8vw);
+      overflow: hidden;
+    }
+
+    #board-column {
+      width: 100%;
+    }
+
+    #rank-labels span {
+      font-size: 0.7rem;
+      height: calc((100vw - 44px) / 8);
+    }
+
+    #file-labels span {
+      font-size: 0.7rem;
+      width: calc((100vw - 44px) / 8);
+    }
+
+    .player-bar {
+      flex-wrap: wrap;
+    }
   }
 </style>
 
-<script type="module" define:vars={{ base }}>
+<script>
+  import { EditorView, basicSetup } from 'codemirror';
+  import { python } from '@codemirror/lang-python';
+  import { oneDark } from '@codemirror/theme-one-dark';
 
-  // --- Tab switching ---
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-pane').forEach(p => {
-        p.classList.remove('active');
-        p.style.display = 'none';
-      });
-      tab.classList.add('active');
-      const pane = document.getElementById(tab.dataset.tab);
-      pane.classList.add('active');
-      pane.style.display = 'block';
-    });
+  // Read server-side variables from data attributes
+  const base = document.getElementById('chess-container').dataset.base;
+
+  // --- CodeMirror 6 Setup ---
+  const editorContainer = document.getElementById('python-code-editor');
+  const editorView = new EditorView({
+    doc: editorContainer.dataset.initialCode || '',
+    extensions: [
+      basicSetup,
+      python(),
+      oneDark,
+      EditorView.lineWrapping,
+    ],
+    parent: editorContainer,
   });
 
-  // --- Chess Engine ---
+  // --- Tab switching ---
+  function switchToTab(tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => {
+      p.classList.remove('active');
+      p.style.display = 'none';
+    });
+    const tabBtn = document.querySelector(`.tab[data-tab="${tabId}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
+    const pane = document.getElementById(tabId);
+    if (pane) {
+      pane.classList.add('active');
+      pane.style.display = 'block';
+    }
+  }
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => switchToTab(tab.dataset.tab));
+  });
+
+  document.querySelectorAll('.tab-link').forEach(link => {
+    link.addEventListener('click', () => switchToTab(link.dataset.tab));
+  });
+
+  // --- Chess Engine (WASM Component Model) ---
   async function loadChessEngine() {
-    const module = await import(`${base}wasm/chess_engine.js`);
-    await module.default(`${base}wasm/chess_engine_bg.wasm`);
-    return module;
+    const module = await import(`${base}engine/chess_engine_component.js`);
+    return module.engine;
   }
 
   let montyLoaded = false;
@@ -800,10 +1372,14 @@ class Bot:
   let lastMove = null;
   let suggestedMove = null;
   let bots = { white: null, black: null };
-  let botModes = { white: 'auto', black: 'auto' };
-  let matchInterval = null;
+  let botModes = { white: 'suggest', black: 'suggest' };
+  let matchTimer = null;
   let matchPaused = false;
+  let autoBotTimeout = null;
+  let gameGeneration = 0;
   let pythonBotCode = { white: null, black: null };
+  const customBots = new Map();
+  const activeBlobUrls = new Set();
 
   // --- Python Host-Function Shim ---
   // Monty API: withInputs(code, names_json_array) creates instance,
@@ -811,6 +1387,8 @@ class Bot:
   // We use underscore-prefixed names to avoid conflicts, then wrap in functions.
   const PYTHON_INPUT_NAMES = ["_board", "_legal_moves", "_is_check", "_fen", "_seed"];
   const PYTHON_SHIM = `
+_log_messages = []
+
 def get_board():
     return _board
 
@@ -824,7 +1402,7 @@ def get_fen():
     return _fen
 
 def log(msg):
-    pass
+    _log_messages.append(str(msg))
 
 def _pseudo_random(n):
     return _seed % n if n > 0 else 0
@@ -832,66 +1410,132 @@ def _pseudo_random(n):
 `;
 
   function getPythonInputs() {
-    const boardState = JSON.parse(game.get_board_state());
-    const legalMoves = JSON.parse(game.get_legal_moves());
+    const boardState = game.getBoardState();
+    const legalMoves = game.getLegalMoves();
     return {
       _legal_moves: legalMoves,
       _board: {
         squares: boardState.squares,
         turn: boardState.turn,
-        castling_rights: boardState.castling,
-        en_passant: boardState.en_passant,
-        halfmove_clock: boardState.halfmove_clock,
-        fullmove_number: boardState.fullmove_number,
-        move_history: boardState.move_history || [],
+        castling_rights: {
+          white_kingside: boardState.castlingRights.whiteKingside,
+          white_queenside: boardState.castlingRights.whiteQueenside,
+          black_kingside: boardState.castlingRights.blackKingside,
+          black_queenside: boardState.castlingRights.blackQueenside,
+        },
+        en_passant: boardState.enPassant,
+        halfmove_clock: boardState.halfmoveClock,
+        fullmove_number: boardState.fullmoveNumber,
+        move_history: boardState.moveHistory || [],
       },
-      _is_check: game.is_check(),
-      _fen: game.get_fen(),
+      _is_check: game.isCheck(),
+      _fen: game.getFen(),
       _seed: Math.floor(Math.random() * 2147483647),
     };
   }
 
-  function executePythonBot(code) {
+  function executePythonBot(code, method) {
     if (!MontyClass) {
       throw new Error('Python runtime not loaded');
     }
     const inputs = getPythonInputs();
-    const fullCode = PYTHON_SHIM + code + '\n\nselect_move()';
+
+    let tail;
+    if (method === 'on_game_start') {
+      tail = '\non_game_start()\n[None, _log_messages]';
+    } else if (method === 'get_name') {
+      tail = '\n[get_name(), []]';
+    } else if (method === 'get_description') {
+      tail = '\n[get_description(), []]';
+    } else {
+      tail = `\n_result = ${method}()\n[_result, _log_messages]`;
+    }
+
+    const fullCode = PYTHON_SHIM + code + tail;
     const m = MontyClass.withInputs(fullCode, JSON.stringify(PYTHON_INPUT_NAMES));
     const result = m.runWithInputs(JSON.stringify(inputs));
-    return JSON.parse(result);
+    const parsed = JSON.parse(result);
+
+    // parsed is [value, logs]
+    const value = parsed[0];
+    const logs = parsed[1] || [];
+
+    // Flush logs to the bot log
+    const turn = game ? game.getTurn() : '?';
+    const label = turn === 'white' ? 'White' : 'Black';
+    for (const logMsg of logs) {
+      addLogEntry(`[${label}] ${logMsg}`);
+    }
+
+    return value;
+  }
+
+  function addBotLogEntry(msg) {
+    const turn = game ? game.getTurn() : '?';
+    const label = turn === 'white' ? 'White' : 'Black';
+    addLogEntry(`[${label}] ${msg}`);
+  }
+
+  function createPythonBot(code, color, name, description) {
+    return {
+      getName: () => name,
+      getDescription: () => description,
+      onGameStart: () => {
+        try {
+          const c = color || game.getTurn();
+          const botCode = pythonBotCode[c] || code;
+          executePythonBot(botCode, 'on_game_start');
+        } catch (e) { /* on_game_start is optional */ }
+      },
+      selectMove: () => {
+        const c = color || game.getTurn();
+        const botCode = pythonBotCode[c] || code;
+        return executePythonBot(botCode, 'select_move');
+      },
+      suggestMove: () => {
+        const c = color || game.getTurn();
+        const botCode = pythonBotCode[c] || code;
+        return executePythonBot(botCode, 'suggest_move');
+      },
+    };
   }
 
   async function loadBot(botId, color = null) {
     if (botId === 'python-bot') {
       await loadMonty();
-      const code = document.getElementById('python-code').value;
-      if (color) {
-        pythonBotCode[color] = code;
-      }
-      return {
-        getName: () => 'Python Bot',
-        getDescription: () => 'Custom Python bot',
-        onGameStart: () => {},
-        selectMove: () => {
-          const c = color || game.get_turn();
-          const botCode = pythonBotCode[c] || code;
-          return executePythonBot(botCode);
-        },
-        suggestMove: () => {
-          const c = color || game.get_turn();
-          const botCode = pythonBotCode[c] || code;
-          return executePythonBot(botCode);
-        },
-      };
-    }
-    if (botId === 'random-bot') {
-      try {
-        const botModule = await import(`${base}bots/random-bot/random_bot.js`);
-        const botHost = await import(`${base}bots/bot-host.js`);
+      const code = editorView.state.doc.toString();
+      if (color) pythonBotCode[color] = code;
 
+      let botName = 'Python Bot';
+      let botDesc = 'Custom Python bot';
+      try { botName = executePythonBot(code, 'get_name') || botName; } catch (e) {
+        if (!String(e).includes('not defined')) addLogEntry(`Warning: get_name() errored: ${e.message || String(e)}`);
+      }
+      try { botDesc = executePythonBot(code, 'get_description') || botDesc; } catch (e) {
+        if (!String(e).includes('not defined')) addLogEntry(`Warning: get_description() errored: ${e.message || String(e)}`);
+      }
+
+      return createPythonBot(code, color, botName, botDesc);
+    }
+    if (botId === 'python-smart-bot') {
+      await loadMonty();
+      const code = editorContainer.dataset.initialCode || '';
+      editorView.dispatch({
+        changes: { from: 0, to: editorView.state.doc.length, insert: code }
+      });
+      if (color) pythonBotCode[color] = code;
+
+      return createPythonBot(code, color, 'Smart Bot (Python)', 'Prefers captures and center control. Written in Python.');
+    }
+    if (botId === 'random-bot' || botId === 'smart-bot') {
+      try {
+        // Template literals avoid Vite's __vite__injectQuery wrapping
+        const botModule = botId === 'smart-bot'
+          ? await import(`${base}bots/smart-bot/smart_bot_component.js`)
+          : await import(`${base}bots/random-bot/random_bot_component.js`);
+        const botHost = await import(`${base}bots/bot-host.js`);
         botHost.setGame(game);
-        botHost.setLogCallback(addLogEntry);
+        botHost.setLogCallback(addBotLogEntry);
 
         return {
           getName: () => botModule.bot.getName(),
@@ -901,10 +1545,23 @@ def _pseudo_random(n):
           suggestMove: () => botModule.bot.suggestMove(),
         };
       } catch (e) {
-        addLogEntry(`Error loading bot: ${(e.message || String(e))}`);
+        addLogEntry(`Error loading bot: ${e.message || String(e)}`);
         console.error(e);
         return null;
       }
+    }
+    if (customBots.has(botId)) {
+      const custom = customBots.get(botId);
+      custom.botHost.setGame(game);
+      custom.botHost.setLogCallback(addBotLogEntry);
+      const botExport = custom.instance;
+      return {
+        getName: () => botExport.getName(),
+        getDescription: () => botExport.getDescription(),
+        onGameStart: () => botExport.onGameStart(),
+        selectMove: () => botExport.selectMove(),
+        suggestMove: () => botExport.suggestMove(),
+      };
     }
     return null;
   }
@@ -920,88 +1577,98 @@ def _pseudo_random(n):
 
   // --- Game Init ---
   async function initGame() {
-    const { ChessGame } = await loadChessEngine();
-    game = new ChessGame();
-    renderBoard();
-    updateUI();
-    setupBotControls();
+    const board = document.getElementById('chess-board');
+    board.innerHTML = '<div class="loading-spinner">Loading engine...</div>';
+    try {
+      const { Game } = await loadChessEngine();
+      game = new Game();
+      renderBoard();
+      updateUI();
+      setupBotControls();
+    } catch (e) {
+      board.innerHTML = '<div class="loading-error">Failed to load chess engine. Please refresh.</div>';
+      console.error(e);
+    }
   }
 
   function setupBotControls() {
-    const whiteSelect = document.getElementById('white-player');
-    const blackSelect = document.getElementById('black-player');
+    setupPlayerDropdowns();
+    setupBotModeRadios();
+    setupMatchControls();
+    setupPythonEditor();
+    setupBotUpload();
+    setupBotCards();
+  }
 
-    whiteSelect.addEventListener('change', async (e) => {
-      const value = e.target.value;
-      if (value === 'upload') {
-        document.getElementById('bot-upload').click();
-        whiteSelect.value = 'human';
-        return;
-      }
+  function setupPlayerDropdowns() {
+    for (const color of ['white', 'black']) {
+      const select = document.getElementById(`${color}-player`);
+      select.addEventListener('change', async (e) => {
+        const value = e.target.value;
+        const modeDiv = document.getElementById(`${color}-bot-mode`);
 
-      const modeDiv = document.getElementById('white-bot-mode');
-
-      if (value === 'human') {
-        bots.white = null;
-        modeDiv.style.display = 'none';
-      } else {
-        if (value === 'python-bot') {
-          // Switch to editor tab
-          document.querySelector('.tab[data-tab="editor-tab"]').click();
+        if (value === 'upload') {
+          document.getElementById('bot-upload').click();
+          select.value = 'human';
+          bots[color] = null;
+          modeDiv.style.display = 'none';
+          updateBotVsBotUI();
+          return;
         }
-        bots.white = await loadBot(value, 'white');
-        modeDiv.style.display = 'block';
-        if (bots.white) {
-          addLogEntry(`White: ${bots.white.getName()} loaded`);
+
+        if (value === 'human') {
+          bots[color] = null;
+          modeDiv.style.display = 'none';
+        } else {
+          if (value === 'python-bot' || value === 'python-smart-bot') {
+            switchToTab('editor-tab');
+          }
+          select.disabled = true;
+          const origText = select.options[select.selectedIndex]?.text;
+          if (select.options[select.selectedIndex]) {
+            select.options[select.selectedIndex].text = 'Loading...';
+          }
+          try {
+            bots[color] = await loadBot(value, color);
+            modeDiv.style.display = 'block';
+            if (bots[color]) {
+              addLogEntry(`${color[0].toUpperCase() + color.slice(1)}: ${bots[color].getName()} loaded`);
+            }
+          } finally {
+            select.disabled = false;
+            if (select.options[select.selectedIndex] && origText) {
+              select.options[select.selectedIndex].text = origText;
+            }
+          }
         }
-      }
 
-      updateBotVsBotUI();
-      checkBotTurn();
-    });
-
-    blackSelect.addEventListener('change', async (e) => {
-      const value = e.target.value;
-      if (value === 'upload') {
-        document.getElementById('bot-upload').click();
-        blackSelect.value = 'human';
-        return;
-      }
-
-      const modeDiv = document.getElementById('black-bot-mode');
-
-      if (value === 'human') {
-        bots.black = null;
-        modeDiv.style.display = 'none';
-      } else {
-        if (value === 'python-bot') {
-          document.querySelector('.tab[data-tab="editor-tab"]').click();
-        }
-        bots.black = await loadBot(value, 'black');
-        modeDiv.style.display = 'block';
-        if (bots.black) {
-          addLogEntry(`Black: ${bots.black.getName()} loaded`);
-        }
-      }
-
-      updateBotVsBotUI();
-      checkBotTurn();
-    });
-
-    document.querySelectorAll('input[name="white-mode"]').forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        botModes.white = e.target.value;
+        updateBotVsBotUI();
         checkBotTurn();
       });
-    });
+    }
+  }
 
-    document.querySelectorAll('input[name="black-mode"]').forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        botModes.black = e.target.value;
-        checkBotTurn();
+  function updateRadioLabels(name) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+      radio.closest('label')?.classList.toggle('checked', radio.checked);
+    });
+  }
+
+  function setupBotModeRadios() {
+    for (const color of ['white', 'black']) {
+      const name = `${color}-mode`;
+      updateRadioLabels(name);
+      document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          botModes[color] = e.target.value;
+          updateRadioLabels(name);
+          checkBotTurn();
+        });
       });
-    });
+    }
+  }
 
+  function setupMatchControls() {
     document.getElementById('start-match').addEventListener('click', startBotMatch);
     document.getElementById('pause-match').addEventListener('click', togglePauseMatch);
 
@@ -1014,50 +1681,190 @@ def _pseudo_random(n):
         makeMove(suggestedMove);
       }
     });
+  }
 
-    // Test button: validate code
+  function setupPythonEditor() {
     document.getElementById('test-python').addEventListener('click', async () => {
-      const errorDiv = document.getElementById('python-error');
-      const code = document.getElementById('python-code').value;
+      const errorDiv = document.getElementById('python-feedback');
+      const code = editorView.state.doc.toString();
 
       try {
         await loadMonty();
-        const result = executePythonBot(code);
-        const legalMoves = JSON.parse(game.get_legal_moves());
+        const result = executePythonBot(code, 'select_move');
+        const allLegalMoves = game.getLegalMoves();
 
-        if (legalMoves.includes(result)) {
-          errorDiv.className = 'success';
+        if (allLegalMoves.includes(result)) {
+          errorDiv.className = 'result-success';
           errorDiv.style.display = 'block';
           errorDiv.textContent = `Bot selected: ${result}`;
         } else {
-          errorDiv.className = '';
+          errorDiv.className = 'result-error';
           errorDiv.style.display = 'block';
-          errorDiv.textContent = `Warning: "${result}" is not a legal move. Legal moves: ${legalMoves.slice(0, 5).join(', ')}...`;
+          errorDiv.textContent = `Warning: "${result}" is not a legal move. Legal moves: ${allLegalMoves.slice(0, 5).join(', ')}...`;
         }
       } catch (e) {
-        errorDiv.className = '';
+        errorDiv.className = 'result-error';
         errorDiv.style.display = 'block';
         errorDiv.textContent = `Error: ${(e.message || String(e))}`;
       }
     });
 
-    // Apply button: re-load bots with new code
     document.getElementById('apply-python').addEventListener('click', async () => {
-      const whiteValue = whiteSelect.value;
-      const blackValue = blackSelect.value;
+      const whiteSelect = document.getElementById('white-player');
+      const blackSelect = document.getElementById('black-player');
 
-      if (whiteValue === 'python-bot') {
+      if (whiteSelect.value === 'python-bot') {
         bots.white = await loadBot('python-bot', 'white');
         addLogEntry('White Python bot updated');
       }
-      if (blackValue === 'python-bot') {
+      if (blackSelect.value === 'python-bot') {
         bots.black = await loadBot('python-bot', 'black');
         addLogEntry('Black Python bot updated');
       }
 
-      if (whiteValue !== 'python-bot' && blackValue !== 'python-bot') {
-        addLogEntry('No Python bot active — select "Python Bot" in Controls tab first');
+      if (whiteSelect.value !== 'python-bot' && blackSelect.value !== 'python-bot') {
+        addLogEntry('No Python bot active — select "Python Editor Bot" from a player dropdown first');
       }
+    });
+  }
+
+  function setupBotUpload() {
+    document.getElementById('bot-upload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+
+      addLogEntry(`Uploading bot: ${file.name}...`);
+
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+
+        if (bytes[0] !== 0x00 || bytes[1] !== 0x61 || bytes[2] !== 0x73 || bytes[3] !== 0x6d) {
+          throw new Error('Not a valid WASM file');
+        }
+
+        const { transpile } = await import(`@bytecodealliance/jco/component`);
+        const { files } = await transpile(bytes, {
+          name: file.name.replace(/\.wasm$/, ''),
+          instantiation: { tag: 'async' },
+          map: [
+            ['chess:bot/host', './bot-host.js'],
+          ],
+          noNodejsCompat: true,
+          base64Cutoff: 0,
+          tlaCompat: true,
+        });
+
+        let mainJsUrl = null;
+        for (const [filename, content] of files) {
+          const isJs = filename.endsWith('.js');
+          const blob = new Blob([content], { type: isJs ? 'text/javascript' : 'application/wasm' });
+          const url = URL.createObjectURL(blob);
+          activeBlobUrls.add(url);
+          if (isJs && !mainJsUrl) {
+            mainJsUrl = url;
+          }
+        }
+
+        if (!mainJsUrl) {
+          throw new Error('Transpilation produced no JS output');
+        }
+
+        const mod = await import(/* @vite-ignore */ mainJsUrl);
+        const botHostModule = await import(`${base}bots/bot-host.js`);
+
+        const wasmLookup = {};
+        for (const [filename, content] of files) {
+          if (filename.endsWith('.wasm')) {
+            wasmLookup['./' + filename] = content;
+          }
+        }
+
+        const getCoreModule = (path) => {
+          const content = wasmLookup[path];
+          if (content) return WebAssembly.compile(content);
+          throw new Error(`WASM module not found: ${path}`);
+        };
+
+        const instance = await mod.instantiate(getCoreModule, {
+          'chess:bot/host': {
+            getBoard: () => botHostModule.getBoard(),
+            getLegalMoves: () => botHostModule.getLegalMoves(),
+            isCheck: () => botHostModule.isCheck(),
+            getGameResult: () => botHostModule.getGameResult(),
+            getFen: () => botHostModule.getFen(),
+            log: (msg) => botHostModule.log(msg),
+          },
+        });
+
+        const botExport = instance.bot || instance['chess:bot/bot@0.1.0'];
+        if (!botExport || typeof botExport.getName !== 'function') {
+          throw new Error('WASM component does not export chess:bot interface');
+        }
+
+        const botName = botExport.getName();
+        addLogEntry(`Loaded custom bot: ${botName}`);
+
+        const customBotId = `custom-${Date.now()}`;
+        customBots.set(customBotId, {
+          name: botName,
+          instance: botExport,
+          botHost: botHostModule,
+        });
+
+        for (const selectId of ['white-player', 'black-player']) {
+          const sel = document.getElementById(selectId);
+          const opt = document.createElement('option');
+          opt.value = customBotId;
+          opt.textContent = `${botName} (uploaded)`;
+          const uploadOpt = sel.querySelector('option[value="upload"]');
+          sel.insertBefore(opt, uploadOpt);
+        }
+      } catch (err) {
+        addLogEntry(`Upload error: ${err.message || String(err)}`);
+        console.error('Bot upload error:', err);
+        const statusDiv = document.getElementById('upload-status');
+        statusDiv.className = 'error';
+        statusDiv.textContent = `Error: ${err.message || String(err)}`;
+        statusDiv.style.display = 'block';
+      }
+    });
+
+    const dropzone = document.getElementById('upload-dropzone');
+    dropzone.addEventListener('click', () => {
+      document.getElementById('bot-upload').click();
+    });
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('drag-over');
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const input = document.getElementById('bot-upload');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+
+  function setupBotCards() {
+    document.querySelectorAll('.bot-load-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const botId = btn.dataset.bot;
+        const color = btn.dataset.color;
+        const selectId = `${color}-player`;
+        const sel = document.getElementById(selectId);
+        sel.value = botId;
+        sel.dispatchEvent(new Event('change'));
+      });
     });
   }
 
@@ -1092,28 +1899,34 @@ def _pseudo_random(n):
   function playNextBotMove() {
     if (matchPaused) return;
 
-    const state = game.get_game_state();
-    if (state !== 'in_progress') {
+    const state = game.getGameResult();
+    if (state !== 'in-progress') {
       stopBotMatch();
       return;
     }
 
-    const turn = game.get_turn();
+    const turn = game.getTurn();
     const bot = turn === 'white' ? bots.white : bots.black;
 
     if (bot) {
       try {
         const move = bot.selectMove();
-        if (move && game.make_move(move)) {
-          moveHistory.push(move);
-          lastMove = move;
-          renderBoard();
-          updateUI();
+        if (move) {
+          try {
+            game.makeMove(move);
+            moveHistory.push(move);
+            lastMove = move;
+            renderBoard();
+            updateUI();
 
-          const speed = parseInt(document.getElementById('match-speed').value);
-          matchInterval = setTimeout(playNextBotMove, speed);
+            const speed = parseInt(document.getElementById('match-speed').value);
+            matchTimer = setTimeout(playNextBotMove, speed);
+          } catch (moveErr) {
+            addLogEntry(`Invalid move from ${turn}: ${move}`);
+            stopBotMatch();
+          }
         } else {
-          addLogEntry(`Invalid move from ${turn}: ${move}`);
+          addLogEntry(`No move from ${turn}`);
           stopBotMatch();
         }
       } catch (e) {
@@ -1125,42 +1938,59 @@ def _pseudo_random(n):
 
   function togglePauseMatch() {
     matchPaused = !matchPaused;
-    document.getElementById('pause-match').textContent = matchPaused ? 'Resume' : 'Pause';
-
-    if (!matchPaused) {
+    const pauseBtn = document.getElementById('pause-match');
+    if (matchPaused) {
+      pauseBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Resume';
+    } else {
+      pauseBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause';
       playNextBotMove();
     }
   }
 
   function stopBotMatch() {
-    if (matchInterval) {
-      clearTimeout(matchInterval);
-      matchInterval = null;
+    if (autoBotTimeout) {
+      clearTimeout(autoBotTimeout);
+      autoBotTimeout = null;
+    }
+    if (matchTimer) {
+      clearTimeout(matchTimer);
+      matchTimer = null;
+      addLogEntry('Bot match ended');
     }
     document.getElementById('start-match').disabled = false;
     document.getElementById('pause-match').disabled = true;
-    addLogEntry('Bot match ended');
   }
 
   async function checkBotTurn() {
-    const state = game.get_game_state();
-    if (state !== 'in_progress') return;
+    const state = game.getGameResult();
+    if (state !== 'in-progress') return;
 
-    const turn = game.get_turn();
+    const turn = game.getTurn();
     const bot = turn === 'white' ? bots.white : bots.black;
     const mode = turn === 'white' ? botModes.white : botModes.black;
 
-    if (bot && mode === 'auto' && !matchInterval) {
-      setTimeout(async () => {
+    const isBotMatch = bots.white && bots.black;
+    if (bot && mode === 'auto' && !matchTimer && !isBotMatch) {
+      if (autoBotTimeout) clearTimeout(autoBotTimeout);
+      const gen = gameGeneration;
+      autoBotTimeout = setTimeout(async () => {
+        autoBotTimeout = null;
+        if (gen !== gameGeneration) return;
         try {
           const move = bot.selectMove();
-          if (move && game.make_move(move)) {
-            moveHistory.push(move);
-            lastMove = move;
-            suggestedMove = null;
-            renderBoard();
-            updateUI();
-            checkBotTurn();
+          if (gen !== gameGeneration) return;
+          if (move) {
+            try {
+              game.makeMove(move);
+              moveHistory.push(move);
+              lastMove = move;
+              suggestedMove = null;
+              renderBoard();
+              updateUI();
+              checkBotTurn();
+            } catch (moveErr) {
+              addLogEntry(`Invalid move: ${move}`);
+            }
           }
         } catch (e) {
           addLogEntry(`Error: ${(e.message || String(e))}`);
@@ -1198,9 +2028,9 @@ def _pseudo_random(n):
     const board = document.getElementById('chess-board');
     board.innerHTML = '';
 
-    const boardState = JSON.parse(game.get_board_state());
-    const isCheck = game.is_check();
-    const turn = game.get_turn();
+    const boardState = game.getBoardState();
+    const isCheck = game.isCheck();
+    const turn = game.getTurn();
 
     for (let rank = 7; rank >= 0; rank--) {
       for (let file = 0; file < 8; file++) {
@@ -1211,10 +2041,15 @@ def _pseudo_random(n):
         const div = document.createElement('div');
         div.className = `square ${(file + rank) % 2 === 0 ? 'dark' : 'light'}`;
         div.dataset.square = sq;
+        div.setAttribute('role', 'button');
+        div.setAttribute('tabindex', '0');
+
+        const pieceName = piece ? `${piece.color} ${piece.pieceType}` : 'empty';
+        div.setAttribute('aria-label', `${sq}, ${pieceName}`);
 
         if (piece) {
-          div.textContent = PIECE_UNICODE[piece.color][piece.piece_type];
-          if (piece.piece_type === 'king' && piece.color === turn && isCheck) {
+          div.textContent = PIECE_UNICODE[piece.color][piece.pieceType];
+          if (piece.pieceType === 'king' && piece.color === turn && isCheck) {
             div.classList.add('check');
           }
         }
@@ -1235,19 +2070,25 @@ def _pseudo_random(n):
         }
 
         div.addEventListener('click', () => handleSquareClick(sq));
+        div.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleSquareClick(sq);
+          }
+        });
         board.appendChild(div);
       }
     }
   }
 
   function handleSquareClick(sq) {
-    const turn = game.get_turn();
+    const turn = game.getTurn();
 
     const bot = turn === 'white' ? bots.white : bots.black;
     const mode = turn === 'white' ? botModes.white : botModes.black;
     if (bot && mode === 'auto') return;
 
-    const boardState = JSON.parse(game.get_board_state());
+    const boardState = game.getBoardState();
     const idx = squareToIndex(sq);
     const piece = boardState.squares[idx];
 
@@ -1260,7 +2101,7 @@ def _pseudo_random(n):
         const fromPiece = boardState.squares[fromIdx];
         const toRank = parseInt(sq[1]);
 
-        if (fromPiece && fromPiece.piece_type === 'pawn' &&
+        if (fromPiece && fromPiece.pieceType === 'pawn' &&
             ((turn === 'white' && toRank === 8) || (turn === 'black' && toRank === 1))) {
           showPromotionModal(selectedSquare, sq);
           return;
@@ -1271,9 +2112,9 @@ def _pseudo_random(n):
       }
     }
 
-    if (piece && piece.color === turn) {
+    if (piece && piece.color === turn && sq !== selectedSquare) {
       selectedSquare = sq;
-      legalMoves = JSON.parse(game.get_legal_moves()).filter(m => m.startsWith(sq));
+      legalMoves = game.getLegalMoves().filter(m => m.startsWith(sq));
     } else {
       selectedSquare = null;
       legalMoves = [];
@@ -1282,33 +2123,56 @@ def _pseudo_random(n):
     renderBoard();
   }
 
+  function dismissPromotionModal() {
+    document.querySelector('.promotion-modal')?.remove();
+  }
+
   function showPromotionModal(from, to) {
-    const turn = game.get_turn();
+    dismissPromotionModal();
+    const turn = game.getTurn();
 
     const modal = document.createElement('div');
     modal.className = 'promotion-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-label', 'Choose promotion piece');
     modal.innerHTML = `
       <div class="promotion-choices">
-        <div class="promotion-choice" data-piece="q">${PIECE_UNICODE[turn].queen}</div>
-        <div class="promotion-choice" data-piece="r">${PIECE_UNICODE[turn].rook}</div>
-        <div class="promotion-choice" data-piece="b">${PIECE_UNICODE[turn].bishop}</div>
-        <div class="promotion-choice" data-piece="n">${PIECE_UNICODE[turn].knight}</div>
+        <div class="promotion-choice" data-piece="q" role="button" tabindex="0" aria-label="Promote to Queen">${PIECE_UNICODE[turn].queen}</div>
+        <div class="promotion-choice" data-piece="r" role="button" tabindex="0" aria-label="Promote to Rook">${PIECE_UNICODE[turn].rook}</div>
+        <div class="promotion-choice" data-piece="b" role="button" tabindex="0" aria-label="Promote to Bishop">${PIECE_UNICODE[turn].bishop}</div>
+        <div class="promotion-choice" data-piece="n" role="button" tabindex="0" aria-label="Promote to Knight">${PIECE_UNICODE[turn].knight}</div>
       </div>
     `;
 
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) dismissPromotionModal();
+    });
+
     modal.querySelectorAll('.promotion-choice').forEach(choice => {
-      choice.addEventListener('click', () => {
-        const piece = choice.dataset.piece;
-        makeMove(`${from}${to}${piece}`);
-        modal.remove();
+      const handler = () => {
+        makeMove(`${from}${to}${choice.dataset.piece}`);
+        dismissPromotionModal();
+      };
+      choice.addEventListener('click', handler);
+      choice.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handler();
+        }
       });
+    });
+
+    // Focus the first choice for keyboard users
+    requestAnimationFrame(() => {
+      modal.querySelector('.promotion-choice')?.focus();
     });
 
     document.body.appendChild(modal);
   }
 
   function makeMove(uci) {
-    if (game.make_move(uci)) {
+    try {
+      game.makeMove(uci);
       moveHistory.push(uci);
       lastMove = uci;
       selectedSquare = null;
@@ -1317,29 +2181,35 @@ def _pseudo_random(n):
       renderBoard();
       updateUI();
       checkBotTurn();
+    } catch (e) {
+      addLogEntry(`Illegal move: ${uci}`);
     }
   }
 
   function updateUI() {
-    const turn = game.get_turn();
-    const state = game.get_game_state();
-    const isCheck = game.is_check();
+    const turn = game.getTurn();
+    const state = game.getGameResult();
+    const isCheck = game.isCheck();
 
     const turnIndicator = document.getElementById('turn-indicator');
     turnIndicator.textContent = `${turn === 'white' ? 'White' : 'Black'} to move`;
 
     const gameStatus = document.getElementById('game-status');
+    gameStatus.classList.remove('game-over');
     if (state === 'checkmate') {
       const winner = turn === 'white' ? 'Black' : 'White';
       gameStatus.textContent = `Checkmate! ${winner} wins!`;
+      gameStatus.classList.add('game-over');
       turnIndicator.textContent = '';
     } else if (state === 'stalemate') {
       gameStatus.textContent = 'Stalemate! Draw.';
+      gameStatus.classList.add('game-over');
       turnIndicator.textContent = '';
     } else if (state === 'draw') {
       gameStatus.textContent = 'Draw!';
+      gameStatus.classList.add('game-over');
       turnIndicator.textContent = '';
-    } else if (isCheck) {
+    } else if (state === 'in-progress' && isCheck) {
       gameStatus.textContent = 'Check!';
     } else {
       gameStatus.textContent = '';
@@ -1357,21 +2227,58 @@ def _pseudo_random(n):
     document.getElementById('undo-btn').disabled = moveHistory.length === 0;
   }
 
-  function resetGame() {
+  function undoMove() {
+    if (moveHistory.length === 0) return;
+    // Invalidates pending bot timeouts so stale moves aren't applied
+    gameGeneration++;
     stopBotMatch();
+    dismissPromotionModal();
+    const movesToReplay = moveHistory.slice(0, -1);
+    game.reset();
+    moveHistory = [];
+    lastMove = null;
+    for (const move of movesToReplay) {
+      game.makeMove(move);
+      moveHistory.push(move);
+      lastMove = move;
+    }
+    selectedSquare = null;
+    legalMoves = [];
+    suggestedMove = null;
+    renderBoard();
+    updateUI();
+    document.getElementById('suggested-move').style.display = 'none';
+  }
+
+  function resetGame() {
+    gameGeneration++;
+    stopBotMatch();
+    dismissPromotionModal();
     game.reset();
     selectedSquare = null;
     legalMoves = [];
     moveHistory = [];
     lastMove = null;
     suggestedMove = null;
+    matchPaused = false;
+    document.getElementById('log-content').innerHTML = '';
+    document.getElementById('python-feedback').style.display = 'none';
+    document.getElementById('suggested-move').style.display = 'none';
     renderBoard();
     updateUI();
-    document.getElementById('suggested-move').style.display = 'none';
-    checkBotTurn();
   }
 
-  document.getElementById('reset-btn').addEventListener('click', resetGame);
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    if (moveHistory.length > 0 && !confirm('Start a new game? Current progress will be lost.')) return;
+    resetGame();
+  });
+  document.getElementById('undo-btn').addEventListener('click', undoMove);
+
+  window.addEventListener('unload', () => {
+    for (const url of activeBlobUrls) {
+      URL.revokeObjectURL(url);
+    }
+  });
 
   initGame();
 </script>

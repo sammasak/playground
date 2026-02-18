@@ -17,20 +17,36 @@ import Layout from '../layouts/Layout.astro';
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 20px;
+		padding: 10px 20px;
 		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 		color: white;
 	}
 
 	h1 {
-		font-size: 2.5rem;
-		margin-bottom: 0.5rem;
+		font-size: 1.8rem;
+		margin-bottom: 0.2rem;
 		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	}
 
 	p {
-		margin-bottom: 20px;
+		margin-bottom: 8px;
 		opacity: 0.9;
+		font-size: 0.9rem;
 		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	}
+
+	@media (max-width: 500px) {
+		main {
+			padding: 6px 8px;
+		}
+
+		h1 {
+			font-size: 1.4rem;
+		}
+
+		p {
+			font-size: 0.8rem;
+			margin-bottom: 4px;
+		}
 	}
 </style>

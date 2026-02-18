@@ -13,5 +13,13 @@ wit-bindgen = "0.41"
 package = "chess:random-bot"
 
 [package.metadata.component.target]
-path = "../../wit"
+path = "../../wit/chess-bot"
 world = "chess-bot"
+
+[package.metadata.component.target.dependencies]
+"chess:types" = { path = "../../wit/chess-types" }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
