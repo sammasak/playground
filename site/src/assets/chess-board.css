@@ -11,7 +11,7 @@
   --color-text: #333;
   --color-text-secondary: #555;
   --color-text-muted: #666;
-  --color-text-light: #999;
+  --color-text-light: #767676;
   --color-border: #ddd;
   --color-border-dark: #333;
   --color-disabled: #bdc3c7;
@@ -37,8 +37,12 @@
   --color-error-border: #f5c6cb;
   --color-error-text: #721c24;
   --space-1: 4px;
+  --space-1.5: 6px;
   --space-2: 8px;
+  --space-2.5: 10px;
   --space-3: 12px;
+  --space-3.5: 14px;
+  --space-3.75: 15px;
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
@@ -52,7 +56,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 15px;
+  padding: var(--space-2) var(--space-3.75);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   width: 100%;
   max-width: 1400px;
@@ -60,7 +64,7 @@
 }
 
 #game-info {
-  margin-bottom: 6px;
+  margin-bottom: var(--space-1.5);
   text-align: center;
 }
 
@@ -78,8 +82,8 @@
 
 #game-status:not(:empty) {
   background: rgba(0, 0, 0, 0.6);
-  padding: 2px 12px;
-  border-radius: 12px;
+  padding: 2px var(--space-3);
+  border-radius: var(--space-3);
   display: inline-block;
 }
 
@@ -88,7 +92,7 @@
   font-weight: bold;
   background: rgba(255, 255, 255, 0.9);
   color: var(--color-text);
-  padding: 6px 20px;
+  padding: var(--space-1.5) 20px;
   border-radius: var(--radius-md);
   animation: game-over-pulse 1s ease-in-out;
 }
@@ -101,7 +105,7 @@
 
 #main-content {
   display: flex;
-  gap: 24px;
+  gap: var(--space-5);
   align-items: flex-start;
   width: 100%;
 }
@@ -129,15 +133,15 @@
 /* Board with coordinate labels — walnut frame */
 #board-with-coords {
   display: grid;
-  grid-template-columns: 24px 416px;
+  grid-template-columns: var(--space-5) 416px;
   grid-template-rows: 416px auto;
   background-color: var(--color-board-frame);
   border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow:
     0 0 0 3px var(--color-board-frame-shadow),
-    0 4px 20px rgba(0, 0, 0, 0.35);
-  padding: 4px;
+    0 var(--space-1) 20px rgba(0, 0, 0, 0.35);
+  padding: var(--space-1);
 }
 
 #rank-labels {
@@ -170,7 +174,7 @@
   align-items: center;
   grid-row: 2;
   grid-column: 2;
-  height: 24px;
+  height: var(--space-5);
 }
 
 #file-labels span {
@@ -185,21 +189,21 @@
 .player-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1.5) var(--space-2.5);
   background: var(--color-surface);
   border-radius: var(--radius-md);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-1.5);
   width: 100%;
   box-sizing: border-box;
 }
 
 .player-bar-black {
-  border-left: 4px solid var(--color-text);
+  border-left: var(--space-1) solid var(--color-text);
 }
 
 .player-bar-white {
-  border-left: 4px solid var(--color-board-dark);
+  border-left: var(--space-1) solid var(--color-board-dark);
   margin-bottom: 0;
   margin-top: var(--space-1);
 }
@@ -212,7 +216,7 @@
 }
 
 .player-bar select {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   font-size: 0.85rem;
@@ -220,7 +224,7 @@
 
 .player-bar .bot-mode {
   flex-direction: row;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: 0;
 }
 
@@ -270,9 +274,9 @@
 }
 
 #controls {
-  margin-top: 6px;
+  margin-top: var(--space-1.5);
   display: flex;
-  gap: 10px;
+  gap: var(--space-2.5);
 }
 
 button {
@@ -324,8 +328,36 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
+.square:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 3px white, inset 0 0 0 6px var(--color-purple);
+}
+
+.tab:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 3px;
+}
+
+.promotion-choice:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(111, 66, 193, 0.2);
+}
+
+#upload-dropzone:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 3px;
+  border-color: var(--color-purple);
+}
+
+.bot-mode label:focus-within input[type="radio"] {
+  outline: 2px solid var(--color-purple);
+  outline-offset: 2px;
+}
+
 #move-history {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   width: 100%;
   color: var(--color-text);
   background: var(--color-card-bg);
@@ -399,7 +431,7 @@ input:focus-visible {
 
 .tab {
   flex: 1;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   background: transparent;
   color: var(--color-text-muted);
   border: none;
@@ -434,7 +466,7 @@ input:focus-visible {
 #tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: var(--space-4);
 }
 
 .tab-pane {
@@ -482,7 +514,7 @@ input:focus-visible {
 .code-block {
   background: var(--color-code-bg);
   color: var(--color-code-text);
-  padding: 14px;
+  padding: var(--space-3.5);
   border-radius: var(--radius-md);
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
   font-size: 12px;
@@ -498,7 +530,7 @@ input:focus-visible {
   background: var(--color-primary);
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: var(--space-2.5) 20px;
   border-radius: 6px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -514,7 +546,7 @@ input:focus-visible {
 .bot-cards {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2.5);
 }
 
 .bot-card {
@@ -527,15 +559,15 @@ input:focus-visible {
 .bot-card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   margin-bottom: 4px;
 }
 
 .bot-lang {
   font-size: 0.7rem;
   background: var(--color-accent-blue-bg);
-  color: var(--color-primary-hover);
-  padding: 1px 6px;
+  color: #0d5a99; /* WCAG AA compliant: 7.1:1 contrast on #e8f4fd background */
+  padding: 1px var(--space-1.5);
   border-radius: 3px;
   font-weight: 600;
 }
@@ -548,14 +580,14 @@ input:focus-visible {
 
 .bot-card-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-1.5);
   align-items: center;
   flex-wrap: wrap;
 }
 
 .bot-load-btn {
   font-size: 0.75rem;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-2.5);
   border: 1px solid var(--color-primary);
   color: var(--color-primary);
   background: var(--color-card-bg);
@@ -585,7 +617,7 @@ input:focus-visible {
 #upload-dropzone {
   border: 2px dashed var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: var(--space-5);
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
@@ -604,7 +636,7 @@ input:focus-visible {
 }
 
 .upload-note {
-  margin-top: 6px !important;
+  margin-top: var(--space-1.5) !important;
   font-size: 0.75rem !important;
   color: var(--color-text-light) !important;
 }
@@ -678,7 +710,7 @@ input:focus-visible {
 
 .editor-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: 10px;
 }
 
@@ -734,7 +766,7 @@ input:focus-visible {
 .bot-mode label {
   font-size: 0.75rem;
   cursor: pointer;
-  padding: 2px 8px;
+  padding: 2px var(--space-2);
   transition: background-color 0.15s, color 0.15s;
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -767,13 +799,13 @@ input:focus-visible {
 }
 
 #bot-vs-bot-controls button {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 #bot-vs-bot-controls label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: 0.9rem;
 }
 
@@ -880,7 +912,7 @@ input:focus-visible {
   padding: 20px;
   border-radius: var(--radius-xl);
   display: flex;
-  gap: 10px;
+  gap: var(--space-2.5);
 }
 
 .promotion-choice {
@@ -922,7 +954,7 @@ input:focus-visible {
 /* Responsive: mobile */
 @media (max-width: 500px) {
   #chess-container {
-    padding: 4px 8px;
+    padding: var(--space-1) var(--space-2);
   }
 
   #board-with-coords {
@@ -961,4 +993,464 @@ input:focus-visible {
   .player-bar {
     flex-wrap: wrap;
   }
+}
+/* ==================== ENHANCED MOBILE RESPONSIVE STYLES ==================== */
+
+/* Tablets: 768px - 1023px */
+@media (max-width: 1023px) and (min-width: 768px) {
+  #python-code-editor {
+    height: 400px;
+  }
+
+  #side-panel {
+    max-width: 700px;
+  }
+}
+
+/* Large phones and small tablets: 600px - 767px */
+@media (max-width: 767px) and (min-width: 600px) {
+  #chess-container {
+    padding: var(--space-1.5) var(--space-3);
+  }
+
+  #python-code-editor {
+    height: 350px;
+  }
+
+  #tab-content {
+    padding: var(--space-3.5);
+  }
+
+  .tab {
+    font-size: 0.85rem;
+    padding: var(--space-2.5) var(--space-3);
+  }
+}
+
+/* Phones: 400px - 599px - COMPREHENSIVE MOBILE IMPROVEMENTS */
+@media (max-width: 599px) and (min-width: 400px) {
+  /* Better touch targets - minimum 44x44px */
+  button {
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.85rem;
+  }
+
+  .player-bar select {
+    min-height: 44px;
+  }
+
+  .bot-mode label {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    align-items: center;
+  }
+
+  .bot-load-btn {
+    min-height: 44px;
+    padding: var(--space-2.5) var(--space-3.5);
+    font-size: 0.8rem;
+  }
+
+  .tab {
+    min-height: 44px;
+    font-size: 0.8rem;
+    padding: var(--space-2.5) var(--space-2);
+  }
+
+  /* Controls layout */
+  #controls {
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  #controls button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Player bars */
+  .player-bar {
+    padding: var(--space-2);
+    gap: var(--space-1.5);
+  }
+
+  .player-bar select {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .player-bar .bot-mode {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Tabs and content */
+  #tab-content {
+    padding: var(--space-3);
+  }
+
+  /* Python editor */
+  #python-code-editor {
+    height: 300px;
+  }
+
+  .editor-actions {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .editor-actions button {
+    width: 100%;
+  }
+
+  /* Bot cards */
+  .bot-card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bot-load-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .bot-source-link {
+    margin-left: 0;
+    text-align: center;
+  }
+
+  /* Move history */
+  #moves-list {
+    max-height: 120px;
+  }
+
+  /* Promotion modal */
+  .promotion-choices {
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .promotion-choice {
+    width: 56px;
+    height: 56px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 32px;
+  }
+}
+
+/* Small phones: < 400px - EXTRA COMPACT */
+@media (max-width: 399px) {
+  #chess-container {
+    padding: 4px 6px;
+  }
+
+  /* Very compact board */
+  #board-with-coords {
+    grid-template-columns: 16px calc(100vw - 28px);
+    grid-template-rows: calc(100vw - 28px) 18px;
+    padding: 2px;
+  }
+
+  .square {
+    font-size: min(28px, 7vw);
+  }
+
+  #rank-labels span {
+    font-size: 0.65rem;
+  }
+
+  #file-labels {
+    height: 18px;
+  }
+
+  #file-labels span {
+    font-size: 0.65rem;
+  }
+
+  /* Compact UI */
+  #turn-indicator {
+    font-size: 1rem;
+  }
+
+  #game-status {
+    font-size: 0.85rem;
+  }
+
+  button {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.8rem;
+  }
+
+  #controls {
+    gap: var(--space-1.5);
+    flex-wrap: wrap;
+  }
+
+  #controls button svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Player bars compact */
+  .player-bar {
+    padding: var(--space-1.5);
+    gap: 4px;
+  }
+
+  .player-label {
+    font-size: 0.8rem;
+  }
+
+  .player-bar select {
+    min-width: 100px;
+    min-height: 44px;
+    font-size: 0.8rem;
+  }
+
+  .bot-mode label {
+    font-size: 0.7rem;
+    min-height: 44px;
+    padding: 5px var(--space-2);
+  }
+
+  /* Tabs compact */
+  .tab {
+    min-height: 44px;
+    font-size: 0.75rem;
+    padding: var(--space-2) var(--space-1.5);
+  }
+
+  #tab-content {
+    padding: var(--space-2.5);
+  }
+
+  /* Editor compact */
+  #python-code-editor {
+    height: 250px;
+  }
+
+  .editor-header h4 {
+    font-size: 0.9rem;
+  }
+
+  .editor-desc {
+    font-size: 0.8rem;
+  }
+
+  .editor-actions button {
+    width: 100%;
+  }
+
+  /* Bot cards compact */
+  .bot-card {
+    padding: var(--space-2);
+  }
+
+  .bot-card-desc {
+    font-size: 0.75rem;
+  }
+
+  .bot-load-btn {
+    font-size: 0.7rem;
+    padding: var(--space-1.5) var(--space-2.5);
+    min-height: 44px;
+  }
+
+  .bot-source-link {
+    font-size: 0.7rem;
+  }
+
+  /* Move history compact */
+  #move-history {
+    padding: var(--space-2);
+  }
+
+  #moves-list {
+    max-height: 100px;
+  }
+
+  .move-entry {
+    font-size: 0.75rem;
+    padding: 2px 5px;
+  }
+
+  /* Game controls compact */
+  #game-controls {
+    padding: var(--space-2);
+  }
+
+  #bot-vs-bot-controls {
+    padding: var(--space-2);
+  }
+
+  #suggested-move {
+    padding: var(--space-2);
+    font-size: 0.85rem;
+  }
+
+  #bot-log h3 {
+    font-size: 0.8rem;
+  }
+
+  #log-content {
+    font-size: 0.7rem;
+    max-height: 80px;
+  }
+
+  /* Upload dropzone compact */
+  #upload-dropzone {
+    padding: var(--space-4);
+  }
+
+  #upload-dropzone svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  #upload-dropzone p {
+    font-size: 0.8rem;
+  }
+
+  .upload-note {
+    font-size: 0.7rem !important;
+  }
+
+  /* Code blocks compact */
+  .code-block {
+    font-size: 10px;
+    padding: var(--space-2.5);
+    max-height: 300px;
+  }
+
+  /* Promotion modal compact */
+  .promotion-choices {
+    padding: var(--space-3);
+    gap: var(--space-1.5);
+  }
+
+  .promotion-choice {
+    width: 48px;
+    height: 48px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 28px;
+  }
+}
+
+/* Landscape mode - shorter heights */
+@media (max-height: 500px) and (orientation: landscape) {
+  #python-code-editor {
+    height: 200px;
+  }
+
+  #moves-list {
+    max-height: 80px;
+  }
+
+  #log-content {
+    max-height: 60px;
+  }
+
+  .code-block {
+    max-height: 200px;
+  }
+}
+
+/* ==================== MISSING CSS CLASSES ==================== */
+
+/* Accessibility utilities */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  z-index: 9999;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Empty state components */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  text-align: center;
+  min-height: 120px;
+}
+
+.empty-state-icon {
+  margin-bottom: var(--space-3);
+  opacity: 0.3;
+  width: 32px;
+  height: 32px;
+  color: var(--color-text-secondary);
+}
+
+.empty-state-title {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-1) 0;
+  font-size: 0.9rem;
+}
+
+.empty-state-hint {
+  color: var(--color-text-light);
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Upload icon */
+.upload-icon {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-light);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+#upload-dropzone:hover .upload-icon {
+  color: var(--color-primary);
+  transform: translateY(-4px) scale(1.1);
+}
+
+/* Success button variant */
+.btn-success {
+  background-color: var(--color-success);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #218838;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-success:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
 }

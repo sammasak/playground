@@ -266,9 +266,14 @@ export function setupPlayerDropdowns() {
         }
         select.disabled = true;
         const origText = select.options[select.selectedIndex]?.text;
-        if (select.options[select.selectedIndex]) {
-          select.options[select.selectedIndex].text = 'Loading...';
-        }
+
+        const loadingIndicator = document.createElement('span');
+        loadingIndicator.className = 'bot-loading-indicator';
+        loadingIndicator.textContent = 'Loading bot...';
+        const modeContainer = document.getElementById(`${color}-bot-mode`);
+        const playerBar = select.closest('.player-bar');
+        playerBar.appendChild(loadingIndicator);
+
         try {
           state.bots[color] = await loadBot(value, color);
           modeDiv.style.display = 'block';
@@ -280,6 +285,8 @@ export function setupPlayerDropdowns() {
           if (select.options[select.selectedIndex] && origText) {
             select.options[select.selectedIndex].text = origText;
           }
+          loadingIndicator.classList.add('fade-out');
+          setTimeout(() => loadingIndicator.remove(), 300);
         }
       }
 
@@ -314,6 +321,11 @@ export function setupBotUpload() {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
+
+    const statusDiv = document.getElementById('upload-status');
+    statusDiv.className = '';
+    statusDiv.innerHTML = '<span class="bot-loading-indicator">Processing WASM file...</span>';
+    statusDiv.style.display = 'block';
 
     addLogEntry(`Uploading bot: ${file.name}...`);
 
@@ -401,6 +413,14 @@ export function setupBotUpload() {
         const uploadOpt = sel.querySelector('option[value="upload"]');
         sel.insertBefore(opt, uploadOpt);
       }
+
+      const statusDiv = document.getElementById('upload-status');
+      statusDiv.className = 'success';
+      statusDiv.textContent = `Successfully loaded ${botName}!`;
+      setTimeout(() => {
+        statusDiv.classList.add('fade-out');
+        setTimeout(() => { statusDiv.style.display = 'none'; }, 300);
+      }, 3000);
     } catch (err) {
       addLogEntry(`Upload error: ${err.message || String(err)}`);
       console.error('Bot upload error:', err);
@@ -412,9 +432,20 @@ export function setupBotUpload() {
   });
 
   const dropzone = document.getElementById('upload-dropzone');
-  dropzone.addEventListener('click', () => {
+  const triggerUpload = () => {
     document.getElementById('bot-upload').click();
+  };
+
+  dropzone.addEventListener('click', triggerUpload);
+
+  // Keyboard accessibility for upload dropzone
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      triggerUpload();
+    }
   });
+
   dropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropzone.classList.add('drag-over');

@@ -218,12 +218,38 @@ export function updateUI() {
 
   const movesList = document.getElementById('moves-list');
   movesList.innerHTML = '';
-  state.moveHistory.forEach((move, i) => {
-    const entry = document.createElement('span');
-    entry.className = 'move-entry';
-    entry.textContent = `${Math.floor(i / 2) + 1}${i % 2 === 0 ? '.' : '...'} ${move}`;
-    movesList.appendChild(entry);
-  });
+
+  if (state.moveHistory.length === 0) {
+    // Show empty state
+    movesList.innerHTML = `
+      <div class="empty-state">
+        <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <defs>
+            <linearGradient id="empty-state-chess-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="url(#empty-state-chess-gradient)"></rect>
+          <line x1="3" y1="7.5" x2="21" y2="7.5" stroke="url(#empty-state-chess-gradient)"></line>
+          <line x1="3" y1="12" x2="21" y2="12" stroke="url(#empty-state-chess-gradient)"></line>
+          <line x1="3" y1="16.5" x2="21" y2="16.5" stroke="url(#empty-state-chess-gradient)"></line>
+          <line x1="7.5" y1="3" x2="7.5" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+          <line x1="12" y1="3" x2="12" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+          <line x1="16.5" y1="3" x2="16.5" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+        </svg>
+        <p class="empty-state-title">No moves recorded</p>
+        <p class="empty-state-hint">Click on a piece to make your first move</p>
+      </div>
+    `;
+  } else {
+    state.moveHistory.forEach((move, i) => {
+      const entry = document.createElement('span');
+      entry.className = 'move-entry';
+      entry.textContent = `${Math.floor(i / 2) + 1}${i % 2 === 0 ? '.' : '...'} ${move}`;
+      movesList.appendChild(entry);
+    });
+  }
 
   document.getElementById('undo-btn').disabled = state.moveHistory.length === 0;
 }

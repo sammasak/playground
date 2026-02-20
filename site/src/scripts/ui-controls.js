@@ -26,6 +26,21 @@ export function init(deps) {
 function setupTabs() {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => switchToTab(tab.dataset.tab));
+    // Keyboard navigation for tabs
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        switchToTab(tab.dataset.tab);
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const tabs = Array.from(document.querySelectorAll('.tab'));
+        const currentIndex = tabs.indexOf(tab);
+        const nextIndex = e.key === 'ArrowRight'
+          ? (currentIndex + 1) % tabs.length
+          : (currentIndex - 1 + tabs.length) % tabs.length;
+        tabs[nextIndex].focus();
+        switchToTab(tabs[nextIndex].dataset.tab);
+      }
+    });
   });
 
   document.querySelectorAll('.tab-link').forEach(link => {
@@ -34,17 +49,25 @@ function setupTabs() {
 }
 
 export function switchToTab(tabId) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(p => {
-    p.classList.remove('active');
-    p.style.display = 'none';
+  // Update tab buttons
+  document.querySelectorAll('.tab').forEach(t => {
+    const isActive = t.dataset.tab === tabId;
+    t.classList.toggle('active', isActive);
+    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    t.setAttribute('tabindex', isActive ? '0' : '-1');
   });
-  const tabBtn = document.querySelector(`.tab[data-tab="${tabId}"]`);
-  if (tabBtn) tabBtn.classList.add('active');
+
+  // Update tab panels
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    const isActive = p.id === tabId;
+    p.classList.toggle('active', isActive);
+    p.style.display = isActive ? 'block' : 'none';
+  });
+
+  // Focus the active panel for screen readers
   const pane = document.getElementById(tabId);
   if (pane) {
-    pane.classList.add('active');
-    pane.style.display = 'block';
+    pane.focus();
   }
 }
 
@@ -119,7 +142,27 @@ function resetGame() {
   state.lastMove = null;
   state.suggestedMove = null;
   state.matchPaused = false;
-  document.getElementById('log-content').innerHTML = '';
+
+  // Restore bot log empty state
+  document.getElementById('log-content').innerHTML = `
+    <div class="empty-state">
+      <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="empty-state-bot-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="url(#empty-state-bot-gradient)"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="url(#empty-state-bot-gradient)"></path>
+        <circle cx="9" cy="16" r="1" fill="url(#empty-state-bot-gradient)"></circle>
+        <circle cx="15" cy="16" r="1" fill="url(#empty-state-bot-gradient)"></circle>
+      </svg>
+      <p class="empty-state-title">No bot activity yet</p>
+      <p class="empty-state-hint">Select a bot from the dropdowns above to see logs</p>
+    </div>
+  `;
+
   document.getElementById('python-feedback').style.display = 'none';
   document.getElementById('suggested-move').style.display = 'none';
   renderBoard();

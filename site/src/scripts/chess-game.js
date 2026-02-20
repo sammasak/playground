@@ -28,6 +28,13 @@ const state = {
 
 function addLogEntry(message) {
   const logContent = document.getElementById('log-content');
+
+  // Remove empty state if it exists
+  const emptyState = logContent.querySelector('.empty-state');
+  if (emptyState) {
+    emptyState.remove();
+  }
+
   const entry = document.createElement('div');
   entry.className = 'log-entry';
   entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
@@ -82,10 +89,11 @@ botManager.setupBotCards();
 
 async function initGame() {
   const board = document.getElementById('chess-board');
-  board.innerHTML = '<div class="loading-spinner">Loading engine...</div>';
+  board.innerHTML = '<div class="loading-spinner"></div>';
   try {
     const { Game } = await loadChessEngine(base);
     state.game = new Game();
+    board.classList.add('fade-in');
     boardUI.renderBoard();
     boardUI.updateUI();
   } catch (e) {

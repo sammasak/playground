@@ -8,9 +8,12 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
 ---
 
 <div id="chess-container" data-base={base}>
-  <div id="game-info">
-    <div id="turn-indicator">White to move</div>
-    <div id="game-status" aria-live="polite"></div>
+  <!-- Skip to main content link -->
+  <a href="#chess-board" class="skip-link">Skip to chess board</a>
+
+  <div id="game-info" role="status" aria-live="polite">
+    <div id="turn-indicator" aria-label="Current turn">White to move</div>
+    <div id="game-status" aria-live="assertive" aria-atomic="true"></div>
   </div>
 
   <div id="main-content">
@@ -19,7 +22,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
         <!-- Black player bar (plays from top) -->
         <div class="player-bar player-bar-black">
           <label for="black-player" class="player-label">Black:</label>
-          <select id="black-player">
+          <select id="black-player" aria-label="Black player type">
             <option value="human">Human</option>
             <option value="random-bot">Random Bot (Rust)</option>
             <option value="smart-bot">Smart Bot (Rust)</option>
@@ -27,20 +30,20 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
             <option value="python-bot">Python Editor Bot</option>
             <option value="upload">Upload Bot...</option>
           </select>
-          <div id="black-bot-mode" class="bot-mode" style="display: none;">
-            <label><input type="radio" name="black-mode" value="auto"> Auto-play</label>
-            <label><input type="radio" name="black-mode" value="suggest" checked> Suggest</label>
+          <div id="black-bot-mode" class="bot-mode" role="radiogroup" aria-label="Black bot mode" style="display: none;">
+            <label><input type="radio" name="black-mode" value="auto" aria-label="Auto-play mode for black"> Auto-play</label>
+            <label><input type="radio" name="black-mode" value="suggest" checked aria-label="Suggest mode for black"> Suggest</label>
           </div>
         </div>
 
         <!-- Board with coordinate labels -->
         <div id="board-with-coords">
-          <div id="rank-labels">
+          <div id="rank-labels" aria-hidden="true">
             <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
           </div>
-          <div id="chess-board"></div>
-          <div id="file-labels-spacer"></div>
-          <div id="file-labels">
+          <div id="chess-board" role="grid" aria-label="Chess board"></div>
+          <div id="file-labels-spacer" aria-hidden="true"></div>
+          <div id="file-labels" aria-hidden="true">
             <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
           </div>
         </div>
@@ -48,7 +51,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
         <!-- White player bar (plays from bottom) -->
         <div class="player-bar player-bar-white">
           <label for="white-player" class="player-label">White:</label>
-          <select id="white-player">
+          <select id="white-player" aria-label="White player type">
             <option value="human">Human</option>
             <option value="random-bot">Random Bot (Rust)</option>
             <option value="smart-bot">Smart Bot (Rust)</option>
@@ -56,57 +59,98 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
             <option value="python-bot">Python Editor Bot</option>
             <option value="upload">Upload Bot...</option>
           </select>
-          <div id="white-bot-mode" class="bot-mode" style="display: none;">
-            <label><input type="radio" name="white-mode" value="auto"> Auto-play</label>
-            <label><input type="radio" name="white-mode" value="suggest" checked> Suggest</label>
+          <div id="white-bot-mode" class="bot-mode" role="radiogroup" aria-label="White bot mode" style="display: none;">
+            <label><input type="radio" name="white-mode" value="auto" aria-label="Auto-play mode for white"> Auto-play</label>
+            <label><input type="radio" name="white-mode" value="suggest" checked aria-label="Suggest mode for white"> Suggest</label>
           </div>
         </div>
 
         <div id="controls">
-          <button id="reset-btn" class="btn-danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>New Game</button>
-          <button id="undo-btn" class="btn-secondary" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>Undo</button>
+          <button id="reset-btn" class="btn-danger" aria-label="Start a new game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>New Game</button>
+          <button id="undo-btn" class="btn-secondary" disabled aria-label="Undo last move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>Undo</button>
         </div>
       </div>
 
       <!-- Game controls (relocated from Controls tab) -->
       <div id="game-controls">
+        <h2 class="visually-hidden">Bot Controls</h2>
         <div id="bot-vs-bot-controls" style="display: none;">
-          <button id="start-match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start Bot Match</button>
-          <button id="pause-match" class="btn-secondary" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
-          <label>
-            Speed: <input type="range" id="match-speed" min="100" max="2000" value="500">
-            <span id="speed-label">500ms</span>
+          <h3 class="visually-hidden">Bot Match Controls</h3>
+          <button id="start-match" aria-label="Start bot vs bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start Bot Match</button>
+          <button id="pause-match" class="btn-secondary" disabled aria-label="Pause bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
+          <label for="match-speed">
+            Speed: <input type="range" id="match-speed" min="100" max="2000" value="500" aria-valuemin="100" aria-valuemax="2000" aria-valuenow="500" aria-valuetext="500 milliseconds">
+            <span id="speed-label" aria-live="polite">500ms</span>
           </label>
         </div>
 
-        <div id="suggested-move" style="display: none;">
+        <div id="suggested-move" style="display: none;" role="region" aria-label="Bot suggestion">
           <strong>Suggested move:</strong> <span id="suggestion"></span>
-          <button id="play-suggestion"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Play it</button>
+          <button id="play-suggestion" class="btn-success" aria-label="Play the suggested move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Play it</button>
         </div>
 
         <div id="bot-log">
           <h3>Bot Log</h3>
-          <div id="log-content"></div>
+          <div id="log-content" role="log" aria-live="polite" aria-atomic="false">
+            <div class="empty-state">
+              <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <defs>
+                  <linearGradient id="empty-state-bot-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="url(#empty-state-bot-gradient)"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="url(#empty-state-bot-gradient)"></path>
+                <circle cx="9" cy="16" r="1" fill="url(#empty-state-bot-gradient)"></circle>
+                <circle cx="15" cy="16" r="1" fill="url(#empty-state-bot-gradient)"></circle>
+              </svg>
+              <p class="empty-state-title">No bot activity yet</p>
+              <p class="empty-state-hint">Select a bot from the dropdowns above to see logs</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <div id="move-history">
+        <h2 class="visually-hidden">Game Information</h2>
         <h3>Move History</h3>
-        <div id="moves-list"></div>
+        <div id="moves-list" role="log" aria-live="polite" aria-atomic="false">
+          <div class="empty-state">
+            <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <defs>
+                <linearGradient id="empty-state-chess-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="url(#empty-state-chess-gradient)"></rect>
+              <line x1="3" y1="7.5" x2="21" y2="7.5" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="3" y1="16.5" x2="21" y2="16.5" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="7.5" y1="3" x2="7.5" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="12" y1="3" x2="12" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="16.5" y1="3" x2="16.5" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+            </svg>
+            <p class="empty-state-title">No moves recorded</p>
+            <p class="empty-state-hint">Click on a piece to make your first move</p>
+          </div>
+        </div>
       </div>
     </div>
 
     <div id="side-panel">
-      <div id="tab-bar">
-        <button class="tab active" data-tab="wit-tab">Bot Interface</button>
-        <button class="tab" data-tab="editor-tab">Python Editor</button>
+      <div id="tab-bar" role="tablist" aria-label="Bot configuration tabs">
+        <button class="tab active" data-tab="wit-tab" role="tab" aria-selected="true" aria-controls="wit-tab" id="tab-btn-wit">Bot Interface</button>
+        <button class="tab" data-tab="editor-tab" role="tab" aria-selected="false" aria-controls="editor-tab" id="tab-btn-editor">Python Editor</button>
       </div>
 
       <div id="tab-content">
         <!-- WIT Interface Tab -->
-        <div id="wit-tab" class="tab-pane active">
+        <div id="wit-tab" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-wit" tabindex="0">
+          <h2 class="visually-hidden">Bot Interface</h2>
           <div class="wit-section">
-            <h4>Example Bots</h4>
+            <h3>Example Bots</h3>
             <div class="bot-cards">
               <div class="bot-card">
                 <div class="bot-card-header">
@@ -115,9 +159,9 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                 </div>
                 <p class="bot-card-desc">Picks a random legal move.</p>
                 <div class="bot-card-actions">
-                  <button class="bot-load-btn" data-bot="random-bot" data-color="white">Load White</button>
-                  <button class="bot-load-btn" data-bot="random-bot" data-color="black">Load Black</button>
-                  <a href="https://github.com/sammasak/playground/tree/main/bots/random-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link">Source</a>
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="white" aria-label="Load Random Bot as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="black" aria-label="Load Random Bot as black player">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/random-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Random Bot source code on GitHub">Source</a>
                 </div>
               </div>
               <div class="bot-card">
@@ -127,9 +171,9 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                 </div>
                 <p class="bot-card-desc">Prefers captures and center control.</p>
                 <div class="bot-card-actions">
-                  <button class="bot-load-btn" data-bot="smart-bot" data-color="white">Load White</button>
-                  <button class="bot-load-btn" data-bot="smart-bot" data-color="black">Load Black</button>
-                  <a href="https://github.com/sammasak/playground/tree/main/bots/smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link">Source</a>
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="white" aria-label="Load Smart Bot (Rust) as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="black" aria-label="Load Smart Bot (Rust) as black player">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Smart Bot (Rust) source code on GitHub">Source</a>
                 </div>
               </div>
               <div class="bot-card">
@@ -139,56 +183,57 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                 </div>
                 <p class="bot-card-desc">Same strategy, written in Python.</p>
                 <div class="bot-card-actions">
-                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="white">Load White</button>
-                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="black">Load Black</button>
-                  <a href="https://github.com/sammasak/playground/tree/main/bots/python-smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link">Source</a>
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="white" aria-label="Load Smart Bot (Python) as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="black" aria-label="Load Smart Bot (Python) as black player">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/python-smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Smart Bot (Python) source code on GitHub">Source</a>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="wit-section">
-            <h4>Upload Your Bot</h4>
-            <div id="upload-dropzone">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; color: var(--color-text-light);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <h3>Upload Your Bot</h3>
+            <div id="upload-dropzone" role="button" tabindex="0" aria-label="Upload bot file: Drop a .wasm bot component here or click to browse">
+              <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
               <p>Drop a <code>.wasm</code> bot component here<br>or click to browse</p>
               <p class="upload-note">Must implement <code>chess:bot@0.1.0</code></p>
             </div>
-            <div id="upload-status" style="display: none;"></div>
+            <div id="upload-status" style="display: none;" role="status" aria-live="polite"></div>
           </div>
 
           <div class="wit-section">
             <details>
               <summary class="wit-summary">WIT Reference</summary>
               <p class="wit-desc">Bots receive the full board state (with move history) and legal moves, then return a UCI move string.</p>
-              <pre id="wit-code" class="code-block">{witCode}</pre>
+              <pre id="wit-code" class="code-block" role="region" aria-label="WIT interface code example">{witCode}</pre>
             </details>
           </div>
 
           <div class="wit-section">
-            <button class="tab-link" data-tab="editor-tab">Open Python Editor →</button>
+            <button class="tab-link" data-tab="editor-tab" aria-label="Switch to Python Editor tab">Open Python Editor →</button>
           </div>
         </div>
 
         <!-- Python Editor Tab -->
-        <div id="editor-tab" class="tab-pane" style="display: none;">
+        <div id="editor-tab" class="tab-pane" style="display: none;" role="tabpanel" aria-labelledby="tab-btn-editor" tabindex="0">
+          <h2 class="visually-hidden">Python Bot Editor</h2>
           <div class="editor-header">
-            <h4>Python Bot Playground</h4>
+            <h3>Python Bot Playground</h3>
             <p class="editor-desc">Implement the WIT bot interface as Python functions. Host functions are globals.</p>
             <p class="editor-desc"><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank" rel="noopener noreferrer">Monty</a> — secure Python subset in WASM</em></p>
           </div>
-          <div id="python-code-editor" data-initial-code={pythonExample}></div>
+          <div id="python-code-editor" data-initial-code={pythonExample} role="region" aria-label="Python code editor"></div>
           <div class="editor-actions">
-            <button id="test-python"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Test Code</button>
-            <button id="apply-python"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Apply to Bot</button>
+            <button id="test-python" class="btn-success" aria-label="Test Python bot code"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Test Code</button>
+            <button id="apply-python" aria-label="Apply Python bot to game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Apply to Bot</button>
           </div>
-          <div id="python-feedback" style="display: none;"></div>
+          <div id="python-feedback" style="display: none;" role="alert" aria-live="assertive"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <input type="file" id="bot-upload" accept=".wasm,.js" style="display: none;">
+  <input type="file" id="bot-upload" accept=".wasm,.js" style="display: none;" aria-label="Select bot file to upload">
 </div>
 
 <style is:global>@import '../assets/chess-board.css';</style>
