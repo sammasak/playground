@@ -1,0 +1,438 @@
+/* Accessibility Enhancements for WCAG 2.1 AA Compliance */
+
+/* Visual indicator for check status that doesn't rely on color alone */
+.square[data-status="check"]::before {
+  content: '⚠';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Enhanced focus indicators with 3:1 contrast ratio */
+button:focus-visible,
+select:focus-visible,
+input[type="range"]:focus-visible,
+input[type="file"]:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+/* Ensure square focus is highly visible */
+.square:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+  z-index: 10;
+  position: relative;
+}
+
+/* Tab focus improvements */
+.tab:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+/* Radio button focus in bot mode */
+.bot-mode label:has(input[type="radio"]:focus-visible) {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+/* Upload dropzone focus */
+#upload-dropzone:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  border-color: var(--color-purple);
+  background: rgba(111, 66, 193, 0.05);
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+/* Promotion choice focus */
+.promotion-choice:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+  z-index: 10;
+}
+
+/* Ensure links have proper focus */
+a:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+/* Skip link styling */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  background: var(--color-purple);
+  color: white;
+  padding: 12px 20px;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  z-index: 10000;
+  transition: top 250ms ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.skip-link:focus {
+  top: 8px;
+  outline: 3px solid white;
+  outline-offset: 2px;
+}
+
+/* Ensure proper contrast for disabled state */
+button:disabled,
+select:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--color-disabled);
+  color: #666;
+}
+
+/* Improve contrast for secondary text */
+.player-label,
+.bot-card-desc,
+.wit-desc,
+.editor-desc,
+#bot-log h3,
+#move-history h3 {
+  color: var(--color-text-secondary);
+}
+
+/* Ensure checkmate/stalemate messages are highly visible */
+#game-status.game-over {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-text-darkest);
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Improve empty state contrast */
+.empty-state-title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.empty-state-hint {
+  color: var(--color-text-secondary);
+}
+
+/* Ensure code blocks have sufficient contrast */
+.code-block {
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+code {
+  background: #e8e8e8;
+  color: var(--color-text-darkest);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+/* Improve bot language badge contrast */
+.bot-lang {
+  background: #e8f4fd;
+  color: #0d5a99;
+  font-weight: 600;
+  border: 1px solid #b8daef;
+}
+
+/* Improve suggested move visibility with arrow icon */
+.square.suggested::before {
+  content: '→';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--color-primary);
+  text-shadow: 0 0 2px white;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Ensure range slider is keyboard accessible */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: var(--color-border);
+  height: 6px;
+  border-radius: var(--radius-sm);
+}
+
+input[type="range"]::-moz-range-track {
+  background: var(--color-border);
+  height: 6px;
+  border-radius: var(--radius-sm);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin-top: -6px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+/* Improve touch target sizes for mobile (minimum 44x44px for WCAG AA) */
+@media (max-width: 768px) {
+  button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 16px;
+  }
+
+  .square {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  select {
+    min-height: 44px;
+  }
+
+  .bot-mode label {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+
+  .tab {
+    min-height: 44px;
+  }
+
+  .promotion-choice {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .square {
+    border: 1px solid currentColor;
+  }
+
+  .square.selected {
+    outline: 3px solid black;
+    outline-offset: 2px;
+  }
+
+  button {
+    border: 2px solid currentColor;
+  }
+
+  .tab.active::after {
+    height: 4px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .square {
+    transition: none;
+  }
+
+  button {
+    transition: none;
+  }
+
+  .tab {
+    transition: none;
+  }
+}
+
+/* Force colors mode for Windows High Contrast */
+@media (forced-colors: active) {
+  button {
+    border: 1px solid ButtonText;
+  }
+
+  .square {
+    border: 1px solid CanvasText;
+  }
+
+  .square.selected {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+/* Keyboard help modal */
+.keyboard-help-content {
+  background: white;
+  color: var(--color-text);
+  padding: 32px;
+  border-radius: var(--radius-xl);
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+#keyboard-help-title {
+  margin: 0 0 24px 0;
+  font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+.close-modal-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  transition: background-color 250ms;
+}
+
+.close-modal-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.close-modal-btn:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+}
+
+.keyboard-shortcuts-list {
+  margin-bottom: 24px;
+}
+
+.keyboard-shortcuts-list h3 {
+  font-size: 1rem;
+  margin: 20px 0 12px 0;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.keyboard-shortcuts-list h3:first-child {
+  margin-top: 0;
+}
+
+.keyboard-shortcuts-list dl {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.keyboard-shortcuts-list dt {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.keyboard-shortcuts-list dd {
+  margin: 0 0 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.keyboard-shortcuts-list kbd {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 0.85rem;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+#close-keyboard-help-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* Responsive keyboard help modal */
+@media (max-width: 768px) {
+  .keyboard-help-content {
+    padding: 24px;
+    max-width: 90vw;
+    max-height: 85vh;
+  }
+
+  #keyboard-help-title {
+    font-size: 1.25rem;
+    margin-bottom: 20px;
+  }
+
+  .keyboard-shortcuts-list h3 {
+    font-size: 0.95rem;
+  }
+
+  .keyboard-shortcuts-list dd {
+    font-size: 0.85rem;
+  }
+}

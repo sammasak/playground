@@ -14,7 +14,11 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
   <div id="game-info" role="status" aria-live="polite">
     <div id="turn-indicator" aria-label="Current turn">White to move</div>
     <div id="game-status" aria-live="assertive" aria-atomic="true"></div>
+    <div id="move-announcer" class="visually-hidden" role="status" aria-live="assertive" aria-atomic="true"></div>
   </div>
+
+  <!-- Hidden hint for screen readers about legal moves -->
+  <div id="legal-move-hint" class="visually-hidden">This is a legal move destination</div>
 
   <div id="main-content">
     <div id="board-column">
@@ -41,7 +45,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
           <div id="rank-labels" aria-hidden="true">
             <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
           </div>
-          <div id="chess-board" role="grid" aria-label="Chess board"></div>
+          <div id="chess-board" role="grid" aria-label="Chess board. Use arrow keys to navigate, Enter or Space to select a piece or make a move, Escape to cancel selection"></div>
           <div id="file-labels-spacer" aria-hidden="true"></div>
           <div id="file-labels" aria-hidden="true">
             <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
@@ -66,8 +70,9 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
         </div>
 
         <div id="controls">
-          <button id="reset-btn" class="btn-danger" aria-label="Start a new game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>New Game</button>
-          <button id="undo-btn" class="btn-secondary" disabled aria-label="Undo last move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>Undo</button>
+          <button id="reset-btn" class="btn-danger" aria-label="Start a new game" title="Reset the board and start a new game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>New Game</button>
+          <button id="undo-btn" class="btn-secondary" disabled aria-label="Undo last move" title="Undo the last move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>Undo</button>
+          <button id="keyboard-help-btn" class="btn-secondary" aria-label="Show keyboard shortcuts" title="Show keyboard shortcuts"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>Help</button>
         </div>
       </div>
 
@@ -76,8 +81,8 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
         <h2 class="visually-hidden">Bot Controls</h2>
         <div id="bot-vs-bot-controls" style="display: none;">
           <h3 class="visually-hidden">Bot Match Controls</h3>
-          <button id="start-match" aria-label="Start bot vs bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start Bot Match</button>
-          <button id="pause-match" class="btn-secondary" disabled aria-label="Pause bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
+          <button id="start-match" aria-label="Start bot vs bot match" title="Start automated bot vs bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start Bot Match</button>
+          <button id="pause-match" class="btn-secondary" disabled aria-label="Pause bot match" title="Pause the automated bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
           <label for="match-speed">
             Speed: <input type="range" id="match-speed" min="100" max="2000" value="500" aria-valuemin="100" aria-valuemax="2000" aria-valuenow="500" aria-valuetext="500 milliseconds">
             <span id="speed-label" aria-live="polite">500ms</span>
@@ -86,7 +91,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
 
         <div id="suggested-move" style="display: none;" role="region" aria-label="Bot suggestion">
           <strong>Suggested move:</strong> <span id="suggestion"></span>
-          <button id="play-suggestion" class="btn-success" aria-label="Play the suggested move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Play it</button>
+          <button id="play-suggestion" class="btn-success" aria-label="Play the suggested move" title="Execute the bot's suggested move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Play it</button>
         </div>
 
         <div id="bot-log">
@@ -159,8 +164,8 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                 </div>
                 <p class="bot-card-desc">Picks a random legal move.</p>
                 <div class="bot-card-actions">
-                  <button class="bot-load-btn" data-bot="random-bot" data-color="white" aria-label="Load Random Bot as white player">Load White</button>
-                  <button class="bot-load-btn" data-bot="random-bot" data-color="black" aria-label="Load Random Bot as black player">Load Black</button>
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="white" aria-label="Load Random Bot as white player" title="Load Random Bot as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="black" aria-label="Load Random Bot as black player" title="Load Random Bot as black player">Load Black</button>
                   <a href="https://github.com/sammasak/playground/tree/main/bots/random-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Random Bot source code on GitHub">Source</a>
                 </div>
               </div>
@@ -171,8 +176,8 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                 </div>
                 <p class="bot-card-desc">Prefers captures and center control.</p>
                 <div class="bot-card-actions">
-                  <button class="bot-load-btn" data-bot="smart-bot" data-color="white" aria-label="Load Smart Bot (Rust) as white player">Load White</button>
-                  <button class="bot-load-btn" data-bot="smart-bot" data-color="black" aria-label="Load Smart Bot (Rust) as black player">Load Black</button>
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="white" aria-label="Load Smart Bot (Rust) as white player" title="Load Smart Bot (Rust) as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="black" aria-label="Load Smart Bot (Rust) as black player" title="Load Smart Bot (Rust) as black player">Load Black</button>
                   <a href="https://github.com/sammasak/playground/tree/main/bots/smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Smart Bot (Rust) source code on GitHub">Source</a>
                 </div>
               </div>
@@ -183,8 +188,8 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                 </div>
                 <p class="bot-card-desc">Same strategy, written in Python.</p>
                 <div class="bot-card-actions">
-                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="white" aria-label="Load Smart Bot (Python) as white player">Load White</button>
-                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="black" aria-label="Load Smart Bot (Python) as black player">Load Black</button>
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="white" aria-label="Load Smart Bot (Python) as white player" title="Load Smart Bot (Python) as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="black" aria-label="Load Smart Bot (Python) as black player" title="Load Smart Bot (Python) as black player">Load Black</button>
                   <a href="https://github.com/sammasak/playground/tree/main/bots/python-smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Smart Bot (Python) source code on GitHub">Source</a>
                 </div>
               </div>
@@ -224,8 +229,8 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
           </div>
           <div id="python-code-editor" data-initial-code={pythonExample} role="region" aria-label="Python code editor"></div>
           <div class="editor-actions">
-            <button id="test-python" class="btn-success" aria-label="Test Python bot code"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Test Code</button>
-            <button id="apply-python" aria-label="Apply Python bot to game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Apply to Bot</button>
+            <button id="test-python" class="btn-success" aria-label="Test Python bot code" title="Test your Python bot code for errors"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Test Code</button>
+            <button id="apply-python" aria-label="Apply Python bot to game" title="Apply this Python bot to the game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Apply to Bot</button>
           </div>
           <div id="python-feedback" style="display: none;" role="alert" aria-live="assertive"></div>
         </div>
@@ -234,9 +239,50 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
   </div>
 
   <input type="file" id="bot-upload" accept=".wasm,.js" style="display: none;" aria-label="Select bot file to upload">
+
+  <!-- Keyboard shortcuts help modal -->
+  <div id="keyboard-help-modal" class="promotion-modal" style="display: none;" role="dialog" aria-labelledby="keyboard-help-title" aria-modal="true">
+    <div class="keyboard-help-content">
+      <h2 id="keyboard-help-title">Keyboard Shortcuts</h2>
+      <button id="close-keyboard-help" class="close-modal-btn" aria-label="Close keyboard shortcuts help">✕</button>
+      <div class="keyboard-shortcuts-list">
+        <h3>Chess Board Navigation</h3>
+        <dl>
+          <dt><kbd>Arrow Keys</kbd></dt>
+          <dd>Navigate between squares on the chess board</dd>
+          <dt><kbd>Enter</kbd> or <kbd>Space</kbd></dt>
+          <dd>Select a piece or make a move</dd>
+          <dt><kbd>Escape</kbd></dt>
+          <dd>Cancel current selection</dd>
+        </dl>
+        <h3>Tab Navigation</h3>
+        <dl>
+          <dt><kbd>Tab</kbd></dt>
+          <dd>Move to next interactive element</dd>
+          <dt><kbd>Shift + Tab</kbd></dt>
+          <dd>Move to previous interactive element</dd>
+          <dt><kbd>Arrow Left/Right</kbd> (on tabs)</dt>
+          <dd>Switch between Bot Interface and Python Editor tabs</dd>
+        </dl>
+        <h3>Game Controls</h3>
+        <dl>
+          <dt><kbd>Ctrl + Z</kbd> or <kbd>Cmd + Z</kbd></dt>
+          <dd>Undo last move (when Undo button is focused)</dd>
+          <dt><kbd>Ctrl + R</kbd> or <kbd>Cmd + R</kbd></dt>
+          <dd>New game (when New Game button is focused)</dd>
+        </dl>
+      </div>
+      <button id="close-keyboard-help-btn" class="btn-primary">Got it!</button>
+    </div>
+  </div>
 </div>
 
-<style is:global>@import '../assets/chess-board.css';</style>
+<style is:global>
+  @import '../assets/chess-board.css';
+  @import '../assets/button-enhancements.css';
+  @import '../assets/board-interaction-enhancements.css';
+  @import '../assets/accessibility-enhancements.css';
+</style>
 
 <script>
   import '../scripts/chess-game.js';

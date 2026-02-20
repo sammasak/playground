@@ -1,0 +1,313 @@
+/* ==================== ENHANCED BUTTON AND INTERACTIVE STATES ==================== */
+
+/* Enhanced button base styles with improved disabled states and better positioning for pseudo-elements */
+button {
+  position: relative;
+  overflow: hidden;
+  font-weight: 500;
+}
+
+/* Improved disabled state styling */
+button:disabled {
+  opacity: 0.6;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Click ripple effect for visual feedback - disabled state is already excluded */
+button:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+button:active:not(:disabled)::after {
+  width: 120%;
+  height: 120%;
+  opacity: 0;
+  transition: width 0.6s ease-out, height 0.6s ease-out, opacity 0.4s ease-out;
+}
+
+/* Secondary button disabled state */
+.btn-secondary:disabled {
+  border-color: var(--color-disabled);
+  color: var(--color-disabled);
+  opacity: 0.5;
+  background-color: transparent;
+}
+
+/* Danger button active state enhancement */
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Success button enhancement with scale effect */
+.btn-success:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+}
+
+/* Enhanced bot load button states */
+.bot-load-btn {
+  transition: all 0.2s ease;
+}
+
+.bot-load-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 3px 6px rgba(52, 152, 219, 0.2);
+}
+
+.bot-load-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 1px 3px rgba(52, 152, 219, 0.15);
+}
+
+/* Enhanced tab button states */
+.tab {
+  transition: all 0.2s ease;
+}
+
+.tab:hover:not(.active) {
+  transform: translateY(-1px);
+}
+
+.tab:active {
+  transform: translateY(0);
+}
+
+/* Enhanced upload dropzone states */
+#upload-dropzone {
+  transition: all 0.25s ease;
+}
+
+#upload-dropzone:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
+}
+
+#upload-dropzone:active {
+  transform: scale(0.99);
+}
+
+/* Promotion choice enhanced states */
+.promotion-choice {
+  transition: all 0.2s ease;
+}
+
+.promotion-choice:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.promotion-choice:active {
+  transform: scale(1.02);
+}
+
+/* Enhanced select dropdown states with hover */
+select {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+select:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: rgba(52, 152, 219, 0.05);
+  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.1);
+  transform: translateY(-1px);
+}
+
+select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+}
+
+select:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--color-surface);
+}
+
+/* Enhanced range input (match speed slider) */
+input[type="range"] {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+input[type="range"]:hover {
+  transform: scaleY(1.1);
+}
+
+input[type="range"]:active {
+  transform: scaleY(1.2);
+}
+
+input[type="range"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Tooltips removed - using native browser tooltips via title attribute */
+
+/* Link hover states */
+a {
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  transform: translateY(-1px);
+}
+
+a:active {
+  transform: translateY(0);
+}
+
+/* Bot source link enhancements */
+.bot-source-link {
+  transition: all 0.2s ease;
+}
+
+.bot-source-link:hover {
+  transform: translateX(2px);
+}
+
+.bot-source-link:active {
+  transform: translateX(0);
+}
+
+/* Tab link enhancements */
+.tab-link {
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-link:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.25);
+}
+
+.tab-link:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Details/summary interaction enhancement */
+details summary {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+details summary:hover {
+  color: var(--color-primary);
+  transform: translateX(2px);
+}
+
+details summary:active {
+  transform: translateX(0);
+}
+
+/* Bot mode radio button group enhancements */
+.bot-mode label {
+  transition: all 0.15s ease;
+}
+
+.bot-mode label:hover:not(:has(input:checked)) {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.bot-mode label:active {
+  transform: scale(0.98);
+}
+
+/* Square interaction improvements are already in main CSS */
+
+/* Upload status message animations */
+#upload-status {
+  animation: slide-in 0.3s ease;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Python feedback animations */
+#python-feedback {
+  animation: slide-in 0.3s ease;
+}
+
+/* Suggested move box pulse animation */
+#suggested-move {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.2);
+  }
+}
+
+/* Enhanced focus states with better visibility - standardized to 3px solid purple, 2px offset */
+button:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+.btn-danger:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+.btn-success:focus-visible {
+  outline: 3px solid var(--color-purple);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
+}
+
+/* Loading state for buttons */
+button.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+button.loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Improve clickable area for small buttons/icons */
+button svg {
+  pointer-events: none;
+}

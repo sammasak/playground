@@ -1,5 +1,7 @@
 // Tab switching, game controls (undo/reset), match controls, and suggestion UI.
 
+import { toast } from './toast.js';
+
 let state = null;
 let addLogEntry = null;
 let renderBoard = null;
@@ -7,6 +9,7 @@ let updateUI = null;
 let stopBotMatch = null;
 let checkBotTurn = null;
 let dismissPromotionModal = null;
+let toggleBoardFlip = null;
 
 export function init(deps) {
   state = deps.state;
@@ -16,6 +19,7 @@ export function init(deps) {
   stopBotMatch = deps.stopBotMatch;
   checkBotTurn = deps.checkBotTurn;
   dismissPromotionModal = deps.dismissPromotionModal;
+  toggleBoardFlip = deps.toggleBoardFlip;
 
   setupTabs();
   setupGameButtons();
@@ -73,10 +77,86 @@ export function switchToTab(tabId) {
 
 function setupGameButtons() {
   document.getElementById('reset-btn').addEventListener('click', () => {
-    if (state.moveHistory.length > 0 && !confirm('Start a new game? Current progress will be lost.')) return;
-    resetGame();
+    if (state.moveHistory.length > 0) {
+      showConfirmationDialog(
+        'Start New Game?',
+        'Current game progress will be lost. Are you sure you want to continue?',
+        () => {
+          resetGame();
+          toast.info('New game started');
+        }
+      );
+    } else {
+      resetGame();
+    }
   });
-  document.getElementById('undo-btn').addEventListener('click', undoMove);
+  document.getElementById('undo-btn').addEventListener('click', () => {
+    undoMove();
+    if (state.moveHistory.length >= 0) {
+      toast.info('Move undone');
+    }
+  });
+
+  const flipBoardBtn = document.getElementById('flip-board-btn');
+  if (flipBoardBtn) {
+    flipBoardBtn.addEventListener('click', toggleBoardFlip);
+  }
+
+  // Keyboard help modal
+  const keyboardHelpBtn = document.getElementById('keyboard-help-btn');
+  const keyboardHelpModal = document.getElementById('keyboard-help-modal');
+  const closeKeyboardHelp = document.getElementById('close-keyboard-help');
+  const closeKeyboardHelpBtn = document.getElementById('close-keyboard-help-btn');
+
+  function showKeyboardHelp() {
+    keyboardHelpModal.style.display = 'flex';
+    closeKeyboardHelp.focus();
+  }
+
+  function hideKeyboardHelp() {
+    keyboardHelpModal.style.display = 'none';
+    keyboardHelpBtn.focus();
+  }
+
+  keyboardHelpBtn.addEventListener('click', showKeyboardHelp);
+  closeKeyboardHelp.addEventListener('click', hideKeyboardHelp);
+  closeKeyboardHelpBtn.addEventListener('click', hideKeyboardHelp);
+
+  // Close on backdrop click
+  keyboardHelpModal.addEventListener('click', (e) => {
+    if (e.target === keyboardHelpModal) {
+      hideKeyboardHelp();
+    }
+  });
+
+  // Close on Escape key
+  keyboardHelpModal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      hideKeyboardHelp();
+    }
+  });
+
+  // Trap focus within modal
+  keyboardHelpModal.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      const focusableElements = keyboardHelpModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+  });
 }
 
 function setupMatchControls(deps) {
@@ -146,7 +226,7 @@ function resetGame() {
   // Restore bot log empty state
   document.getElementById('log-content').innerHTML = `
     <div class="empty-state">
-      <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <defs>
           <linearGradient id="empty-state-bot-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
@@ -167,4 +247,68 @@ function resetGame() {
   document.getElementById('suggested-move').style.display = 'none';
   renderBoard();
   updateUI();
+}
+
+// Confirmation Dialog
+function showConfirmationDialog(title, message, onConfirm) {
+  const dialog = document.createElement('div');
+  dialog.className = 'confirmation-dialog';
+  dialog.setAttribute('role', 'alertdialog');
+  dialog.setAttribute('aria-labelledby', 'confirmation-title');
+  dialog.setAttribute('aria-describedby', 'confirmation-message');
+
+  dialog.innerHTML = `
+    <div class="confirmation-content">
+      <div class="confirmation-header">
+        <svg class="confirmation-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <h3 id="confirmation-title" class="confirmation-title">${title}</h3>
+      </div>
+      <p id="confirmation-message" class="confirmation-message">${message}</p>
+      <div class="confirmation-actions">
+        <button class="confirmation-cancel" id="confirmation-cancel">Cancel</button>
+        <button class="confirmation-confirm" id="confirmation-confirm">Continue</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(dialog);
+
+  const closeDialog = () => {
+    dialog.classList.remove('show');
+    setTimeout(() => dialog.remove(), 200);
+  };
+
+  const cancelBtn = dialog.querySelector('#confirmation-cancel');
+  const confirmBtn = dialog.querySelector('#confirmation-confirm');
+
+  cancelBtn.addEventListener('click', closeDialog);
+  confirmBtn.addEventListener('click', () => {
+    closeDialog();
+    onConfirm();
+  });
+
+  // Close on backdrop click
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) {
+      closeDialog();
+    }
+  });
+
+  // Close on Escape key
+  dialog.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeDialog();
+    }
+  });
+
+  // Show dialog
+  requestAnimationFrame(() => {
+    dialog.classList.add('show');
+    confirmBtn.focus();
+  });
 }

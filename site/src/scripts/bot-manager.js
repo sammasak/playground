@@ -5,6 +5,7 @@ import {
   executePythonBot, createPythonBot,
   getEditorCode, setEditorCode, getInitialCode,
 } from './python-editor.js';
+import { toast } from './toast.js';
 
 let state = null;
 let base = '';
@@ -267,10 +268,9 @@ export function setupPlayerDropdowns() {
         select.disabled = true;
         const origText = select.options[select.selectedIndex]?.text;
 
-        const loadingIndicator = document.createElement('span');
+        const loadingIndicator = document.createElement('div');
         loadingIndicator.className = 'bot-loading-indicator';
         loadingIndicator.textContent = 'Loading bot...';
-        const modeContainer = document.getElementById(`${color}-bot-mode`);
         const playerBar = select.closest('.player-bar');
         playerBar.appendChild(loadingIndicator);
 
@@ -278,8 +278,18 @@ export function setupPlayerDropdowns() {
           state.bots[color] = await loadBot(value, color);
           modeDiv.style.display = 'block';
           if (state.bots[color]) {
-            addLogEntry(`${color[0].toUpperCase() + color.slice(1)}: ${state.bots[color].getName()} loaded`);
+            const botName = state.bots[color].getName();
+            addLogEntry(`${color[0].toUpperCase() + color.slice(1)}: ${botName} loaded`);
+            toast.success(`${botName} loaded as ${color}`);
+          } else {
+            toast.error(`Failed to load bot for ${color}`);
           }
+        } catch (err) {
+          console.error('Bot load error:', err);
+          toast.error(`Failed to load bot: ${err.message || String(err)}`);
+          select.value = 'human';
+          state.bots[color] = null;
+          modeDiv.style.display = 'none';
         } finally {
           select.disabled = false;
           if (select.options[select.selectedIndex] && origText) {
@@ -324,7 +334,14 @@ export function setupBotUpload() {
 
     const statusDiv = document.getElementById('upload-status');
     statusDiv.className = '';
-    statusDiv.innerHTML = '<span class="bot-loading-indicator">Processing WASM file...</span>';
+    statusDiv.innerHTML = `
+      <div class="bot-loading-indicator">
+        Processing WASM file...
+      </div>
+      <div class="loading-progress" style="margin-top: 8px; width: 100%;">
+        <div class="loading-progress-bar indeterminate"></div>
+      </div>
+    `;
     statusDiv.style.display = 'block';
 
     addLogEntry(`Uploading bot: ${file.name}...`);
@@ -333,7 +350,7 @@ export function setupBotUpload() {
       const bytes = new Uint8Array(await file.arrayBuffer());
 
       if (bytes[0] !== 0x00 || bytes[1] !== 0x61 || bytes[2] !== 0x73 || bytes[3] !== 0x6d) {
-        throw new Error('Not a valid WASM file');
+        throw new Error('Invalid file format. Please upload a valid .wasm component file.');
       }
 
       const { transpile } = await import(`@bytecodealliance/jco/component`);
@@ -392,7 +409,7 @@ export function setupBotUpload() {
 
       const botExport = instance.bot || instance['chess:bot/bot@0.1.0'];
       if (!botExport || typeof botExport.getName !== 'function') {
-        throw new Error('WASM component does not export chess:bot interface');
+        throw new Error('Invalid bot component. Must implement chess:bot@0.1.0 interface with getName(), selectMove(), etc.');
       }
 
       const botName = botExport.getName();
@@ -417,17 +434,29 @@ export function setupBotUpload() {
       const statusDiv = document.getElementById('upload-status');
       statusDiv.className = 'success';
       statusDiv.textContent = `Successfully loaded ${botName}!`;
+      toast.success(`${botName} uploaded successfully!`);
       setTimeout(() => {
         statusDiv.classList.add('fade-out');
         setTimeout(() => { statusDiv.style.display = 'none'; }, 300);
       }, 3000);
     } catch (err) {
-      addLogEntry(`Upload error: ${err.message || String(err)}`);
+      const errorMsg = err.message || String(err);
+      addLogEntry(`Upload error: ${errorMsg}`);
       console.error('Bot upload error:', err);
+
+      // Provide helpful error messages
+      let userFriendlyMsg = errorMsg;
+      if (errorMsg.includes('instantiate')) {
+        userFriendlyMsg = 'Failed to instantiate WASM module. Ensure your bot implements the correct interface.';
+      } else if (errorMsg.includes('import')) {
+        userFriendlyMsg = 'Missing required imports. Your bot must use chess:bot/host@0.1.0.';
+      }
+
       const statusDiv = document.getElementById('upload-status');
       statusDiv.className = 'error';
-      statusDiv.textContent = `Error: ${err.message || String(err)}`;
+      statusDiv.textContent = `Error: ${userFriendlyMsg}`;
       statusDiv.style.display = 'block';
+      toast.error(userFriendlyMsg, 6000);
     }
   });
 
