@@ -33,6 +33,15 @@ Thumbs.db
 # Generated bindings (regenerated on build)
 bots/*/src/bindings.rs
 
+# Development screenshots (root only, preserves site assets)
+/*.png
+
+# Eval artifacts
+eval-*.md
+
+# Auto-generated engine bindings (regenerated on build)
+chess-engine/src/bindings.rs
+
 # Environment
 .env
 .env.local

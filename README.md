@@ -1,214 +1,83 @@
 # WASM Chess
 
-A high-performance chess game powered by Rust and WebAssembly, featuring a plugin system for custom AI bots.
+A chess engine written in Rust (bitboard-based, 97 tests, PERFT-verified) compiled to WebAssembly, with a plugin system for AI bots using the WASM Component Model and WIT interfaces. Bots can be written in Rust and compiled to WASM components, or written in Python and interpreted at runtime via the Monty WASM runtime.
 
-## Features
+```mermaid
+flowchart TB
+    User([User])
 
-- **High-Performance Chess Engine**: Written in Rust using bitboard representation for optimal performance
-- **WebAssembly**: Runs entirely in the browser with near-native speed
-- **AI Bot System**: Extensible plugin architecture using WebAssembly Interface Types (WIT)
-- **Python Bot Support**: Write bots in Python using the Monty runtime - no compilation needed
-- **Multiple Play Modes**:
-  - Human vs Human
-  - Human vs Bot (auto-play or suggest mode)
-  - Bot vs Bot matches with adjustable speed
+    subgraph Frontend["Astro Frontend"]
+        UI[Board UI &amp; Controls]
+        Tabs[Tab Panel<br>Game / Editor / WIT / Logs]
+    end
 
-## Architecture
+    subgraph Engine["Chess Engine"]
+        WASM_E[chess_engine.wasm<br>Bitboard move gen]:::wasm
+        JS_E[JS Bindings<br>wasm-pack generated]:::js
+    end
 
+    subgraph BotSystem["Bot System"]
+        Loader[Bot Loader<br>jco transpile]:::js
+        subgraph Bots["Bot Instances"]
+            RustBot[Rust Bots<br>WASM Components]:::rust
+            PyBot[Python Bots<br>Monty Runtime]:::python
+        end
+    end
+
+    User <--> UI
+    UI --> JS_E --> WASM_E
+    UI --> Loader --> Bots
+
+    classDef rust fill:#dea584,stroke:#b7410e,color:#000
+    classDef wasm fill:#654ff0,stroke:#4b0082,color:#fff
+    classDef js fill:#f7df1e,stroke:#b8a900,color:#000
+    classDef python fill:#306998,stroke:#1a3a5c,color:#fff
 ```
-playground/
-├── chess-engine/     # Rust chess engine compiled to WASM
-├── bots/            # WASM component bots (Rust)
-│   └── random-bot/  # Example random move bot
-├── wit/             # WebAssembly Interface Types definitions
-└── site/            # Astro static site
-    ├── src/
-    │   └── components/
-    │       └── ChessBoard.astro
-    └── public/
-        ├── wasm/    # Chess engine WASM
-        ├── bots/    # Transpiled bot modules
-        └── monty/   # Python runtime
-```
 
-## Chess Engine
-
-The chess engine uses a bitboard-based representation for efficient move generation and game state management:
-
-- **Bitboards**: 64-bit integers for each piece type/color combination
-- **Precomputed Attack Tables**: Knight, king, and pawn attacks precomputed at startup
-- **Sliding Piece Attacks**: Ray-based attack generation for bishops, rooks, and queens
-- **Full Rule Support**: Castling, en passant, promotion, check/checkmate/stalemate detection
-
-### Running Tests
+## Quick Start
 
 ```bash
-cd chess-engine
-cargo test
+nix develop
+cd site && npm install && npm run dev
 ```
 
-The engine includes 30 comprehensive tests covering:
-- FEN parsing and round-trip
-- All castling scenarios
-- En passant captures
-- Check, checkmate, and stalemate detection
-- Insufficient material draws
-- Pawn promotion
-- Pin detection
-- 50-move rule
-
-## Bot Plugin System
-
-Bots are implemented using the WebAssembly Component Model with WIT interfaces.
-
-### WIT Interface
-
-```wit
-interface bot {
-    get-name: func() -> string;
-    get-description: func() -> string;
-    get-preferred-color: func() -> option<color>;
-    on-game-start: func();
-    select-move: func() -> move;
-    suggest-move: func() -> move;
-}
-
-interface host {
-    get-board: func() -> board-state;
-    get-legal-moves: func() -> list<move>;
-    is-check: func() -> bool;
-    get-game-result: func() -> game-result;
-    get-fen: func() -> string;
-    log: func(message: string);
-}
-```
-
-### Creating a Rust Bot
-
-```rust
-wit_bindgen::generate!({
-    path: "../../wit",
-    world: "chess-bot",
-});
-
-use exports::chess::bot::bot::Guest;
-use chess::bot::host;
-
-struct MyBot;
-
-impl Guest for MyBot {
-    fn get_name() -> String {
-        "My Bot".to_string()
-    }
-
-    fn select_move() -> String {
-        let moves = host::get_legal_moves();
-        // Your move selection logic here
-        moves[0].clone()
-    }
-
-    // ... other methods
-}
-
-export!(MyBot);
-```
-
-Build with:
-```bash
-cargo component build --release
-```
-
-### Creating a Python Bot
-
-Python bots run in the browser using the Monty runtime:
-
-```python
-# Available inputs:
-#   legal_moves: list of UCI strings ["e2e4", "d2d4", ...]
-#   board: dict with 'squares', 'turn', 'castling_rights', etc.
-#   turn: "white" or "black"
-
-import random
-
-# Pick a random move
-move = random.choice(legal_moves)
-
-# Prefer captures
-for m in legal_moves:
-    to_file = ord(m[2]) - ord('a')
-    to_rank = int(m[3]) - 1
-    target_sq = to_rank * 8 + to_file
-    if board['squares'][target_sq]:
-        move = m
-        break
-
-move  # Return the selected move
-```
-
-## Development
-
-### Prerequisites
-
-- Rust (with wasm32-unknown-unknown target)
-- wasm-pack
-- cargo-component
-- Node.js 18+
-- jco (@bytecodealliance/jco)
-
-### Building
+Build everything from scratch:
 
 ```bash
-# Build chess engine
-cd chess-engine
-wasm-pack build --target web --release
+nix develop
 
-# Build bot
-cd ../bots/random-bot
-cargo component build --release
+# Chess engine
+wasm-pack build chess-engine --target web --release
 
-# Transpile bot to JS
-npx @bytecodealliance/jco transpile \
-  target/wasm32-wasip1/release/random_bot.wasm \
-  -o ../../site/public/bots/random-bot \
-  --map 'chess:bot/host=../../bot-host.js'
+# Bots (Rust → WASM Component → JS)
+cargo component build --manifest-path bots/smart-bot/Cargo.toml --release
+cargo component build --manifest-path bots/random-bot/Cargo.toml --release
 
-# Build site
-cd ../../site
-npm install
-npm run build
+# Site
+cd site && npm run build
 ```
 
-### Running Locally
+## Documentation
 
-```bash
-cd site
-npm run dev
-```
+- **[Architecture](docs/architecture.md)** -- Mermaid diagrams covering system overview, build pipelines, runtime move flow, WIT component boundaries, and bot loading lifecycle
+- **[Bot Interface (WIT)](wit/chess-bot/bot.wit)** -- the `chess:bot@0.1.0` interface that bots implement
+- **[Engine Interface (WIT)](wit/chess-engine/engine.wit)** -- the `chess:engine@0.1.0` resource API
+- **[Shared Types (WIT)](wit/chess-types/types.wit)** -- `chess:types@0.1.0` used across both interfaces
 
 ## Testing
 
-### Rust Tests
 ```bash
-cd chess-engine
-cargo test
-```
-
-### Playwright E2E Tests
-```bash
-cd site
-npx playwright test
+nix develop -c cargo test --manifest-path chess-engine/Cargo.toml   # 97 tests
+nix develop -c cargo test --manifest-path bots/smart-bot/Cargo.toml # 16 tests
+cd site && npx playwright test                                       # 10 E2E tests
 ```
 
 ## Tech Stack
 
-- **Rust**: Chess engine and WASM bot compilation
-- **WebAssembly**: High-performance browser execution
-- **WIT**: WebAssembly Interface Types for bot plugins
-- **Astro**: Static site generation
-- **TypeScript**: Frontend logic
-- **Monty**: Python runtime in WASM (from Pydantic)
-- **Playwright**: End-to-end testing
-
-## License
-
-MIT
+| Layer | Technology |
+|-------|-----------|
+| Engine | Rust, bitboards, wasm-pack |
+| Bot plugins | WASM Component Model, WIT, cargo-component, jco |
+| Python bots | [Monty](https://github.com/pydantic/monty) (Python subset in WASM) |
+| Frontend | Astro, CodeMirror 6 |
+| Testing | cargo test, Playwright |

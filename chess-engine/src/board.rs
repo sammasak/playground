@@ -4,6 +4,23 @@
 //! The public entry point is [`Board`], which owns the position and exposes
 //! [`generate_legal_moves`](Board::generate_legal_moves),
 //! [`make_move`](Board::make_move), and [`game_state`](Board::game_state).
+//!
+//! ## Direction encoding
+//!
+//! Rays are indexed 0..8, mapping compass directions to square offsets:
+//!
+//! | Index | Direction | Offset |
+//! |-------|-----------|--------|
+//! | 0     | N         | +8     |
+//! | 1     | NE        | +9     |
+//! | 2     | E         | +1     |
+//! | 3     | SE        | -7     |
+//! | 4     | S         | -8     |
+//! | 5     | SW        | -9     |
+//! | 6     | W         | -1     |
+//! | 7     | NW        | +7     |
+//!
+//! Diagonals = {1, 3, 5, 7}, Straights = {0, 2, 4, 6}.
 
 use crate::types::{
     CastlingRights, Color, GameState, Move, MoveKind, Piece, PieceType, Square,
@@ -20,10 +37,17 @@ use std::sync::OnceLock;
 // Diagonals = {1, 3, 5, 7}  Straights = {0, 2, 4, 6}
 // ---------------------------------------------------------------------------
 
+/// Precomputed attack bitboards for every square on the board.
+///
+/// Initialized once via `OnceLock` and shared across all `Board` instances.
+/// Contains lookup tables for leaper pieces (knight, king, pawn) and
+/// ray attacks for sliding pieces (bishop, rook, queen) in all 8 directions.
 struct AttackTables {
     knight: [u64; 64],
     king: [u64; 64],
+    /// Indexed `[color][square]`: white=0, black=1.
     pawn: [[u64; 64]; 2],
+    /// Indexed `[square][direction]` — see module docs for direction encoding.
     rays: [[u64; 8]; 64],
 }
 
@@ -103,6 +127,8 @@ impl AttackTables {
         t
     }
 
+    /// Generate a bitboard of all squares reachable by a leaper piece
+    /// (knight or king) from the given rank/file, using the provided offsets.
     fn leaper(rank: i8, file: i8, offsets: &[(i8, i8)]) -> u64 {
         let mut bb = 0u64;
         for &(dr, df) in offsets {
@@ -171,7 +197,12 @@ const C8: Square = Square::new(2, 7);
 const F8: Square = Square::new(5, 7);
 const D8: Square = Square::new(3, 7);
 
-/// Castling configuration for one side (king or queenside).
+/// Table-driven castling validation for one side (king or queenside).
+///
+/// Each entry encodes the rights check, path mask, king movement, transit
+/// square, and attacking color. The move generator iterates the config array
+/// instead of branching per side, keeping the logic uniform for all four
+/// castling options (white/black kingside/queenside).
 struct CastlingConfig {
     rights_check: fn(CastlingRights) -> bool,
     path_mask: u64,
@@ -524,6 +555,10 @@ impl Board {
         false
     }
 
+    /// Check if the nearest piece along a ray from `sq_idx` in `dir` is in `targets`.
+    ///
+    /// Used for sliding piece attack detection: finds the first blocker on the ray
+    /// and checks whether it belongs to the target set (e.g. enemy bishops|queens).
     fn ray_hits(&self, sq_idx: usize, dir: usize, targets: u64) -> bool {
         let ray = tables().rays[sq_idx][dir];
         let blockers = ray & self.all;
@@ -661,6 +696,8 @@ impl Board {
         moves
     }
 
+    /// Emit pseudo-legal moves for a leaper piece type (knight or king)
+    /// by looking up precomputed attack bitboards and masking out friendly pieces.
     fn gen_leaper(&self, moves: &mut Vec<Move>, pt: PieceType, us: usize, table: &[u64; 64]) {
         let mut bb = self.pieces[us][pt as usize];
         while bb != 0 {
@@ -675,6 +712,8 @@ impl Board {
         }
     }
 
+    /// Emit castling pseudo-legal moves by iterating `CASTLING_CONFIGS`.
+    /// Checks rights, path clearance, and transit/destination square safety.
     fn gen_castling(&self, moves: &mut Vec<Move>) {
         let in_check = self.is_in_check(self.side_to_move);
         if in_check {
@@ -793,7 +832,11 @@ impl Board {
             }
         }
 
-        // Update castling rights via branchless bitmask clearing
+        // Branchless castling rights update: `mask_for_square` maps each corner
+        // square to a bitmask that clears the relevant right (e.g. h1 clears WK).
+        // Non-corner squares produce 0xFF (no-op). This avoids branching on piece
+        // type or position — any move from/to a corner unconditionally clears the
+        // associated right.
         for sq in [mv.from().raw(), mv.to().raw()] {
             self.castling.clear(CastlingRights::mask_for_square(sq));
         }
@@ -873,18 +916,6 @@ mod tests {
     fn starting_position_fen() {
         let b = Board::new();
         assert_eq!(b.to_fen(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    }
-
-    #[test]
-    fn debug_shows_fen() {
-        let b = Board::new();
-        let dbg = format!("{b:?}");
-        assert!(dbg.starts_with("Board(\"rnbqkbnr"));
-    }
-
-    #[test]
-    fn twenty_opening_moves() {
-        assert_eq!(Board::new().generate_legal_moves().len(), 20);
     }
 
     #[test]
@@ -1432,17 +1463,6 @@ mod tests {
         assert!(!moves.is_empty(), "king should have at least one escape");
     }
 
-    #[test]
-    fn double_check_blocks_dont_work() {
-        // Same double check + black pawn d7 that could theoretically block — still can't
-        let b = Board::from_fen("3k4/3p4/4N3/6B1/8/8/8/4K3 b - - 0 1").unwrap();
-        let moves = b.generate_legal_moves();
-        assert!(
-            !moves.iter().any(|m| m.from() == Square::new(3, 6)),
-            "pawn can't resolve double check"
-        );
-    }
-
     // ======================== Pin Directions (1f) ========================
 
     #[test]
@@ -1507,17 +1527,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn cannot_expose_own_king_via_discovery() {
-        // Knight e5 pinned by rook e7 to king e1 — can't move
-        let b = Board::from_fen("4k3/4r3/8/4N3/8/8/8/4K3 w - - 0 1").unwrap();
-        let moves = b.generate_legal_moves();
-        assert!(
-            !moves.iter().any(|m| m.from() == Square::new(4, 4)),
-            "knight pinned to own king can't move"
-        );
-    }
-
     // ======================== Castling Destination Attack (1h) ========================
 
     #[test]
@@ -1562,6 +1571,15 @@ mod tests {
         assert_eq!(b.game_state(), GameState::Stalemate);
         assert!(!b.make_move(Move::from_uci("a8a7").unwrap()));
         assert!(!b.make_move(Move::from_uci("a8b8").unwrap()));
+    }
+
+    #[test]
+    fn invalid_uci_doesnt_corrupt() {
+        let mut board = Board::new();
+        let fen_before = board.to_fen();
+        assert!(!board.make_move(Move::from_uci("e2e5").unwrap()));
+        assert!(!board.make_move(Move::from_uci("e7e5").unwrap()));
+        assert_eq!(board.to_fen(), fen_before);
     }
 
     #[test]

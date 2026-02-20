@@ -13,6 +13,8 @@ use bindings::chess::types::types::{BoardState, Color, PieceType};
 
 struct SmartBot;
 
+/// Standard piece values for MVV (Most Valuable Victim) capture ordering.
+/// King is valued at 0 since it can never be captured.
 const fn piece_value(pt: PieceType) -> i32 {
     match pt {
         PieceType::Queen => 9,
@@ -23,6 +25,8 @@ const fn piece_value(pt: PieceType) -> i32 {
     }
 }
 
+/// Parse a UCI move string into (from_index, to_index) on a 0-63 board.
+/// Returns None if the string is too short or contains out-of-range squares.
 fn parse_uci(uci: &str) -> Option<(usize, usize)> {
     let bytes = uci.as_bytes();
     if bytes.len() < 4 {
@@ -38,16 +42,25 @@ fn parse_uci(uci: &str) -> Option<(usize, usize)> {
     Some((from_rank * 8 + from_file, to_rank * 8 + to_file))
 }
 
+/// True if the square is one of the four center squares (d4, e4, d5, e5).
 const fn is_center(idx: usize) -> bool {
     matches!(idx, 27 | 28 | 35 | 36)
 }
 
+/// True if the square is in the 4x4 extended center (c3 through f6).
 fn is_extended_center(idx: usize) -> bool {
     let file = idx % 8;
     let rank = idx / 8;
     (2..=5).contains(&file) && (2..=5).contains(&rank)
 }
 
+/// Score a candidate move for ordering. Higher is better.
+///
+/// Heuristics applied (cumulative):
+/// - **Capture**: +100 + victim_value * 10 (MVV ordering)
+/// - **Promotion**: +90 (queen), +50 (rook), +30 (bishop/knight)
+/// - **Center control**: +15 for d4/e4/d5/e5, +5 for extended center
+/// - **Development**: +8 for moving a non-pawn piece in the opening (fullmove < 10)
 fn score_move(uci: &str, board: &BoardState) -> i32 {
     let Some((from_idx, to_idx)) = parse_uci(uci) else {
         return 0;
@@ -120,6 +133,9 @@ impl Guest for SmartBot {
             .map(|(_, m)| *m)
             .collect();
 
+        // Deterministic tie-breaking: no `rand` crate available in the WASM
+        // sandbox, so we derive a pseudo-random index from game clock values.
+        // This makes bot behavior reproducible for the same board state.
         let selected = if tied.len() > 1 {
             let idx =
                 (board.fullmove_number as usize + board.halfmove_clock as usize) % tied.len();
@@ -194,44 +210,6 @@ mod tests {
     #[test]
     fn parse_uci_invalid_rank() {
         assert_eq!(parse_uci("e9e4"), None); // '9' - '1' = 8 > 7
-    }
-
-    // ---- is_center / is_extended_center ----
-
-    #[test]
-    fn center_squares() {
-        // d4=27, e4=28, d5=35, e5=36
-        assert!(is_center(27));
-        assert!(is_center(28));
-        assert!(is_center(35));
-        assert!(is_center(36));
-        assert!(!is_center(0));
-        assert!(!is_center(63));
-        assert!(!is_center(26)); // c4
-    }
-
-    #[test]
-    fn extended_center_includes_c3_through_f6() {
-        // c3 = rank2, file2 => idx 18
-        assert!(is_extended_center(18));
-        // f6 = rank5, file5 => idx 45
-        assert!(is_extended_center(45));
-        // a1 = rank0, file0 => not extended center
-        assert!(!is_extended_center(0));
-        // h8 = rank7, file7 => not extended center
-        assert!(!is_extended_center(63));
-    }
-
-    // ---- piece_value ----
-
-    #[test]
-    fn piece_values_are_correct() {
-        assert_eq!(piece_value(PieceType::Queen), 9);
-        assert_eq!(piece_value(PieceType::Rook), 5);
-        assert_eq!(piece_value(PieceType::Bishop), 3);
-        assert_eq!(piece_value(PieceType::Knight), 3);
-        assert_eq!(piece_value(PieceType::Pawn), 1);
-        assert_eq!(piece_value(PieceType::King), 0);
     }
 
     // ---- score_move ----

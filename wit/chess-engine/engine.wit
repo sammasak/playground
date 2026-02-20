@@ -3,18 +3,46 @@ package chess:engine@0.1.0;
 interface engine {
     use chess:types/types@0.1.0.{board-state, move, game-result, color, piece, square, engine-error, move-history-entry};
 
+    /// A chess game instance that owns a board position and enforces the rules.
     resource game {
+        /// Create a new game in the standard starting position.
         constructor();
+
+        /// Create a game from a FEN position string.
+        /// Returns an error if the FEN is malformed or the position is invalid
+        /// (e.g. missing kings, bad castling rights).
         from-fen: static func(fen: string) -> result<game, engine-error>;
+
+        /// Serialize the current position to a FEN string.
         get-fen: func() -> string;
+
+        /// Return the full board state: squares, turn, castling rights,
+        /// en passant target, clocks, and move history.
         get-board-state: func() -> board-state;
+
+        /// Return all legal moves for the side to move, in UCI notation.
         get-legal-moves: func() -> list<move>;
+
+        /// Validate and apply a move given in UCI notation (e.g. "e2e4", "e7e8q").
+        /// Returns an error if the move is illegal or the game is already over.
         make-move: func(uci: move) -> result<_, engine-error>;
+
+        /// Check the current game result: in-progress, checkmate, stalemate, or draw.
         get-game-result: func() -> game-result;
+
+        /// Return true if the side to move is currently in check.
         is-check: func() -> bool;
+
+        /// Return whose turn it is (white or black).
         get-turn: func() -> color;
+
+        /// Return the piece on a given square (0-63), or none if empty.
         get-piece-at: func(sq: square) -> option<piece>;
+
+        /// Return the full move history as a list of (UCI move, resulting FEN) pairs.
         get-move-history: func() -> list<move-history-entry>;
+
+        /// Reset the game to the standard starting position, clearing all history.
         reset: func();
     }
 }

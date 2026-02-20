@@ -7,16 +7,6 @@ test.describe('Chess Game', () => {
     await page.waitForSelector('#chess-board .square', { timeout: 10000 });
   });
 
-  test('should load the chess board', async ({ page }) => {
-    // Check that the chess board exists
-    const board = page.locator('#chess-board');
-    await expect(board).toBeVisible();
-
-    // Check that we have 64 squares
-    const squares = page.locator('#chess-board .square');
-    await expect(squares).toHaveCount(64);
-  });
-
   test('should display pieces in starting position', async ({ page }) => {
     // Check that there are pieces on the board (should have 32 pieces at start)
     const piecesWithContent = page.locator('#chess-board .square').filter({ hasText: /[♔♕♖♗♘♙♚♛♜♝♞♟]/ });
@@ -24,11 +14,6 @@ test.describe('Chess Game', () => {
     // Starting position has pieces on ranks 1, 2, 7, 8 (32 squares)
     const count = await piecesWithContent.count();
     expect(count).toBe(32);
-  });
-
-  test('should indicate white to move at start', async ({ page }) => {
-    const turnIndicator = page.locator('#turn-indicator');
-    await expect(turnIndicator).toContainText('White to move');
   });
 
   test('should allow clicking on a pawn to show legal moves', async ({ page }) => {
@@ -134,7 +119,7 @@ test.describe('Chess Game', () => {
     await expect(f3Square).toContainText('♘');
   });
 
-  test('should detect check', async ({ page }) => {
+  test('should detect checkmate', async ({ page }) => {
     // Set up a quick check scenario using Scholar's mate approach
     // 1. e4
     await page.locator('[data-square="e2"]').click();

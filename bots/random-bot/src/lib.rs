@@ -37,6 +37,10 @@ impl Guest for RandomBot {
             return String::new();
         }
 
+        // Deterministic "random" selection: the WASM sandbox has no access to
+        // a random number generator, so we derive an index from the game clocks.
+        // This means the same board position always produces the same move,
+        // which is useful for reproducible testing.
         let board = host::get_board();
         let idx = (board.fullmove_number as usize + board.halfmove_clock as usize) % moves.len();
         let selected = &moves[idx];
