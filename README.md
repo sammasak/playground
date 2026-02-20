@@ -59,10 +59,15 @@ cd site && npm run build
 
 ## Documentation
 
+### Project-Specific
 - **[Architecture](docs/architecture.md)** -- Mermaid diagrams covering system overview, build pipelines, runtime move flow, WIT component boundaries, and bot loading lifecycle
 - **[Bot Interface (WIT)](wit/chess-bot/bot.wit)** -- the `chess:bot@0.1.0` interface that bots implement
 - **[Engine Interface (WIT)](wit/chess-engine/engine.wit)** -- the `chess:engine@0.1.0` resource API
 - **[Shared Types (WIT)](wit/chess-types/types.wit)** -- `chess:types@0.1.0` used across both interfaces
+
+### General Knowledge
+General architectural patterns and WASM Component Model concepts from this project have been migrated to the [knowledge vault](https://github.com/sammasak/knowledge-vault) for broader reuse:
+- **WASM Component Model Browser Plugin Architecture** - Runtime plugin loading patterns, jco transpile workflow, host-mediated instantiation
 
 ## Testing
 
