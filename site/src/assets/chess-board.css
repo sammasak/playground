@@ -66,8 +66,8 @@
   --color-error-border: #f5c6cb;      /* Error message border */
   --color-error-text: #721c24;        /* Error message text */
 
-  /* Legacy color mappings for backwards compatibility */
-  --color-text: #333;
+  /* Legacy color mappings for backwards compatibility - updated for dark theme */
+  --color-text: var(--color-text-primary);  /* White for dark background */
   --color-text-darkest: #1a1a1a;
 
   /* Consistent spacing scale: 4px, 8px, 12px, 16px, 24px, 32px, 48px */
