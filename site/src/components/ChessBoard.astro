@@ -261,6 +261,34 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
             </div>
           </div>
 
+          <!-- Upload Custom Bot Section -->
+          <div class="wit-section">
+            <h3>Upload Custom Bot</h3>
+            <div class="bot-cards">
+              <div class="bot-card" id="upload-card">
+                <div class="bot-card-header">
+                  <strong>Your Own Bot</strong>
+                  <span class="bot-lang bot-lang-wasm" title="WebAssembly Component">
+                    <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor">
+                      <path d="M0 0h256v256H0z" fill="#654ff0"/>
+                      <path d="M60 40h20l20 120-20 56h-20l-20-56zm56 0h20l20 120-20 56h-20l-20-56zm56 0h20l20 120-20 56h-20l-20-56z" fill="#fff"/>
+                    </svg>
+                  </span>
+                </div>
+                <p class="bot-card-desc">
+                  Upload a WASM component implementing the chess bot interface.
+                  <a href="https://github.com/sammasak/playground/blob/main/wit/chess-bot/bot.wit"
+                     target="_blank" rel="noopener noreferrer">View WIT spec</a>
+                </p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" id="upload-wasm-btn">Browse Files</button>
+                  <input type="file" id="wasm-file-input" accept=".wasm" style="display: none;">
+                </div>
+                <div id="upload-error" class="upload-error" style="display: none;"></div>
+              </div>
+            </div>
+          </div>
+
           <div class="wit-section">
             <button class="tab-link" data-tab="editor-tab" aria-label="Switch to Python Editor tab">Open Python Editor →</button>
           </div>
