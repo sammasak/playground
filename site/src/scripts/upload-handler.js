@@ -1,0 +1,266 @@
+// Upload handler for custom WASM bot components
+// Manages file upload, validation, storage, and UI updates
+
+// In-memory storage for uploaded bots
+const uploadedBots = new Map();
+
+/**
+ * Initialize upload functionality
+ */
+export function initializeUpload() {
+  const uploadBtn = document.getElementById('upload-wasm-btn');
+  const fileInput = document.getElementById('wasm-file-input');
+  const errorDiv = document.getElementById('upload-error');
+
+  if (!uploadBtn || !fileInput) {
+    console.warn('Upload elements not found');
+    return;
+  }
+
+  // Click browse button -> trigger file input
+  uploadBtn.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  // File selected -> handle upload
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    await handleFileUpload(file, uploadBtn, fileInput, errorDiv);
+  });
+}
+
+/**
+ * Handle file upload process
+ */
+async function handleFileUpload(file, uploadBtn, fileInput, errorDiv) {
+  // Reset error state
+  hideError(errorDiv);
+
+  // Validate file extension
+  if (!file.name.endsWith('.wasm')) {
+    showError(errorDiv, 'Please select a .wasm file');
+    fileInput.value = '';
+    return;
+  }
+
+  // Update button state
+  const originalText = uploadBtn.textContent;
+  uploadBtn.textContent = 'Uploading...';
+  uploadBtn.disabled = true;
+
+  try {
+    // Load WASM file as ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Validate and instantiate WASM module
+    const botData = await validateAndLoadBot(arrayBuffer, file.name);
+
+    // Generate unique ID
+    const botId = `custom-bot-${Date.now()}`;
+
+    // Store bot data
+    uploadedBots.set(botId, {
+      id: botId,
+      name: botData.name,
+      description: botData.description,
+      module: botData.module,
+      arrayBuffer: arrayBuffer
+    });
+
+    // Update UI
+    showUploadedBotsSection();
+    addBotCard(botId, botData.name, botData.description);
+
+    // Reset upload form
+    fileInput.value = '';
+    uploadBtn.textContent = originalText;
+    uploadBtn.disabled = false;
+
+  } catch (error) {
+    console.error('Upload failed:', error);
+    showError(errorDiv, error.message);
+    fileInput.value = '';
+    uploadBtn.textContent = originalText;
+    uploadBtn.disabled = false;
+  }
+}
+
+/**
+ * Validate WASM file and extract bot metadata
+ */
+async function validateAndLoadBot(arrayBuffer, filename) {
+  try {
+    // Instantiate WASM module
+    const module = await WebAssembly.instantiate(arrayBuffer, {});
+
+    // Check for required exports
+    const exports = module.instance.exports;
+
+    // Attempt to call get-name and get-description
+    let botName = filename.replace('.wasm', '');
+    let botDescription = 'Custom bot';
+
+    try {
+      if (typeof exports['get-name'] === 'function') {
+        botName = exports['get-name']() || botName;
+      }
+    } catch (e) {
+      console.warn('Could not get bot name, using filename:', e);
+    }
+
+    try {
+      if (typeof exports['get-description'] === 'function') {
+        botDescription = exports['get-description']() || botDescription;
+      }
+    } catch (e) {
+      console.warn('Could not get bot description, using default:', e);
+    }
+
+    return {
+      name: botName,
+      description: botDescription,
+      module: module
+    };
+
+  } catch (error) {
+    console.error('WASM validation failed:', error);
+    throw new Error('Failed to load WASM module. File may be corrupted.');
+  }
+}
+
+/**
+ * Show uploaded bots section if hidden
+ */
+function showUploadedBotsSection() {
+  const section = document.getElementById('uploaded-bots-section');
+  if (section) {
+    section.style.display = 'block';
+  }
+}
+
+/**
+ * Hide uploaded bots section if empty
+ */
+function hideUploadedBotsSection() {
+  const container = document.getElementById('uploaded-bots-container');
+  if (container && container.children.length === 0) {
+    const section = document.getElementById('uploaded-bots-section');
+    if (section) {
+      section.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * Add bot card to uploaded bots section
+ */
+function addBotCard(botId, name, description) {
+  const container = document.getElementById('uploaded-bots-container');
+  if (!container) return;
+
+  const card = document.createElement('div');
+  card.className = 'bot-card';
+  card.dataset.botId = botId;
+
+  card.innerHTML = `
+    <div class="bot-card-header">
+      <strong>${escapeHtml(name)}</strong>
+      <span class="bot-lang bot-lang-wasm" title="WebAssembly Component">
+        <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M0 0h256v256H0z" fill="#654ff0"/>
+          <path d="M60 40h20l20 120-20 56h-20l-20-56zm56 0h20l20 120-20 56h-20l-20-56zm56 0h20l20 120-20 56h-20l-20-56z" fill="#fff"/>
+        </svg>
+      </span>
+    </div>
+    <p class="bot-card-desc">${escapeHtml(description)}</p>
+    <div class="bot-card-actions">
+      <button class="bot-load-btn" data-bot="${botId}" data-color="white">Load White</button>
+      <button class="bot-load-btn" data-bot="${botId}" data-color="black">Load Black</button>
+      <button class="bot-remove-btn" data-bot="${botId}" title="Remove bot" aria-label="Remove ${escapeHtml(name)}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+
+  container.appendChild(card);
+
+  // Attach remove handler
+  const removeBtn = card.querySelector('.bot-remove-btn');
+  removeBtn.addEventListener('click', () => handleRemoveBot(botId, name));
+}
+
+/**
+ * Handle bot removal
+ */
+function handleRemoveBot(botId, botName) {
+  if (!confirm(`Remove ${botName}?`)) {
+    return;
+  }
+
+  // Remove from storage
+  uploadedBots.delete(botId);
+
+  // Remove card from DOM
+  const card = document.querySelector(`[data-bot-id="${botId}"]`);
+  if (card) {
+    card.remove();
+  }
+
+  // Hide section if empty
+  hideUploadedBotsSection();
+}
+
+/**
+ * Show error message
+ */
+function showError(errorDiv, message) {
+  if (!errorDiv) return;
+
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => {
+    hideError(errorDiv);
+  }, 5000);
+}
+
+/**
+ * Hide error message
+ */
+function hideError(errorDiv) {
+  if (!errorDiv) return;
+  errorDiv.style.display = 'none';
+  errorDiv.textContent = '';
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(unsafe) {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Get uploaded bot data
+ */
+export function getUploadedBot(botId) {
+  return uploadedBots.get(botId);
+}
+
+/**
+ * Get all uploaded bots
+ */
+export function getAllUploadedBots() {
+  return Array.from(uploadedBots.values());
+}
