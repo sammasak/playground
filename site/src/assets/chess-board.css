@@ -106,6 +106,15 @@
   --font-weight-bold: 700;
 }
 
+/* ==================== CONSISTENT BACKGROUND ==================== */
+
+/* Ensure consistent background across browsers */
+html, body {
+  background-color: var(--color-bg-secondary);  /* #2c2c2c - consistent dark theme */
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
+}
 
 /* ==================== TYPOGRAPHY & SPACING IMPROVEMENTS ==================== */
 
@@ -645,6 +654,7 @@ input:focus-visible {
   background: var(--color-surface);
   border-radius: var(--radius-md);
   min-height: 30px;
+  justify-content: center;  /* Center move entries horizontally */
 }
 
 #moves-list:empty::before {
