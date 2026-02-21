@@ -594,8 +594,16 @@ export function setupBotCards() {
     btn.addEventListener('click', async () => {
       const botId = btn.dataset.bot;
       const color = btn.dataset.color;
+
+      // Skip if required data attributes are missing
+      if (!botId || !color) {
+        return;
+      }
+
       const selectId = `${color}-player`;
       const sel = document.getElementById(selectId);
+      if (!sel) return; // Defensive check
+
       sel.value = botId;
       sel.dispatchEvent(new Event('change'));
     });
