@@ -254,7 +254,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
           </div>
 
           <!-- Uploaded Bots Section (dynamically shown on first upload) -->
-          <div id="uploaded-bots-section" class="wit-section" style="display: none;">
+          <div id="uploaded-bots-section" class="wit-section" style="display: none;" aria-live="polite" role="region" aria-label="Uploaded Bots">
             <h3>Uploaded Bots</h3>
             <div id="uploaded-bots-container" class="bot-cards">
               <!-- Uploaded bot cards will be dynamically added here -->
@@ -295,8 +295,8 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
                      target="_blank" rel="noopener noreferrer">View WIT spec</a>
                 </p>
                 <div class="bot-card-actions">
-                  <button class="btn-primary" id="upload-wasm-btn">Browse Files</button>
-                  <input type="file" id="wasm-file-input" accept=".wasm" style="display: none;">
+                  <button class="btn-primary" id="upload-wasm-btn" aria-label="Browse for WASM bot file to upload" aria-describedby="upload-error">Browse Files</button>
+                  <input type="file" id="wasm-file-input" accept=".wasm" style="display: none;" aria-label="WASM file input">
                 </div>
                 <div id="upload-error" class="upload-error" style="display: none;"></div>
               </div>

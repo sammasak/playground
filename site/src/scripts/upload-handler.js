@@ -1,8 +1,13 @@
 // Upload handler for custom WASM bot components
 // Manages file upload, validation, storage, and UI updates
 
+import { toast } from './toast.js';
+
 // In-memory storage for uploaded bots
 const uploadedBots = new Map();
+
+// File size validation constant
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 /**
  * Initialize upload functionality
@@ -45,6 +50,18 @@ async function handleFileUpload(file, uploadBtn, fileInput, errorDiv) {
     return;
   }
 
+  // Validate file size
+  if (file.size === 0) {
+    showError(errorDiv, 'File is empty. Please select a valid WASM file.');
+    fileInput.value = '';
+    return;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    showError(errorDiv, 'File too large. Maximum size is 10MB.');
+    fileInput.value = '';
+    return;
+  }
+
   // Update button state
   const originalText = uploadBtn.textContent;
   uploadBtn.textContent = 'Uploading...';
@@ -72,6 +89,9 @@ async function handleFileUpload(file, uploadBtn, fileInput, errorDiv) {
     // Update UI
     showUploadedBotsSection();
     addBotCard(botId, botData.name, botData.description);
+
+    // Show success notification
+    toast.success(`${botData.name} uploaded successfully!`);
 
     // Reset upload form
     fileInput.value = '';
