@@ -254,24 +254,6 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
           </div>
 
           <div class="wit-section">
-            <h3>Upload Your Bot</h3>
-            <div id="upload-dropzone" role="button" tabindex="0" aria-label="Upload bot file: Drop a .wasm bot component here or click to browse">
-              <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              <p>Drop a <code>.wasm</code> bot component here<br>or click to browse</p>
-              <p class="upload-note">Must implement <code>chess:bot@0.1.0</code></p>
-            </div>
-            <div id="upload-status" style="display: none;" role="status" aria-live="polite"></div>
-          </div>
-
-          <div class="wit-section">
-            <details>
-              <summary class="wit-summary">WIT Reference</summary>
-              <p class="wit-desc">Bots receive the full board state (with move history) and legal moves, then return a UCI move string.</p>
-              <pre id="wit-code" class="code-block" role="region" aria-label="WIT interface code example">{witCode}</pre>
-            </details>
-          </div>
-
-          <div class="wit-section">
             <button class="tab-link" data-tab="editor-tab" aria-label="Switch to Python Editor tab">Open Python Editor →</button>
           </div>
         </div>
