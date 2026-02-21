@@ -173,8 +173,7 @@ p {
 /* Text content areas - prevent overly long lines */
 .wit-desc,
 .editor-desc,
-.bot-card-desc,
-#upload-dropzone p {
+.bot-card-desc {
   max-width: 65ch;
 }
 
@@ -619,12 +618,6 @@ input:focus-visible {
   box-shadow: 0 0 0 5px rgba(111, 66, 193, 0.2);
 }
 
-#upload-dropzone:focus-visible {
-  outline: 3px solid var(--color-purple);
-  outline-offset: 3px;
-  border-color: var(--color-purple);
-}
-
 .bot-mode label:focus-within input[type="radio"] {
   outline: 2px solid var(--color-purple);
   outline-offset: 2px;
@@ -915,6 +908,54 @@ input:focus-visible {
   box-shadow: 0 0 0 2px rgba(55, 118, 171, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.bot-lang-wasm {
+  background: #654ff0; /* WebAssembly purple */
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(101, 79, 240, 0.2);
+}
+
+.bot-lang-wasm:hover {
+  background: #5a3fd9; /* Darker purple on hover */
+  box-shadow: 0 0 0 2px rgba(101, 79, 240, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Remove button for uploaded bots */
+.bot-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  cursor: pointer;
+  padding: 4px;
+  margin-left: auto;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.bot-remove-btn:hover {
+  color: var(--color-danger);
+  background: rgba(231, 76, 60, 0.1);
+  transform: translateY(-1px);
+}
+
+.bot-remove-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Upload error message */
+.upload-error {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: 0.85rem;
+}
+
 
 
 
@@ -990,70 +1031,7 @@ input:focus-visible {
   height: 18px;
 }
 
-/* Upload section centering */
-.wit-section:has(#upload-dropzone) {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.wit-section:has(#upload-dropzone) h3 {
-  text-align: center;
-  width: 100%;
-}
-
-/* Upload Dropzone with responsive padding scale: 16px → 12px */
-#upload-dropzone {
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background-color 0.2s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  max-width: 100%;
-}
-
-#upload-dropzone:hover,
-#upload-dropzone.drag-over {
-  border-color: var(--color-primary);
-  background: var(--color-accent-green-hover);
-}
-
-#upload-dropzone p {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-}
-
-.upload-note {
-  margin-top: var(--space-2) !important;
-  font-size: 0.75rem !important;
-  color: var(--color-text-light) !important;
-}
-
-#upload-status {
-  margin-top: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  font-size: 0.8rem;
-  text-align: center;
-  max-width: 100%;
-}
-
-#upload-status.success {
-  background: var(--color-success-bg);
-  color: var(--color-success-text);
-}
-
-#upload-status.error {
-  background: var(--color-error-bg);
-  color: var(--color-error-text);
-}
+/* Upload dropzone styles removed - upload now uses .bot-card styling */
 
 /* Editor Tab */
 .editor-header {
@@ -1609,11 +1587,6 @@ input:focus-visible {
 
 /* Phones: 400px - 599px - COMPREHENSIVE MOBILE IMPROVEMENTS */
 @media (max-width: 599px) and (min-width: 400px) {
-    /* Upload dropzone responsive padding scale */
-  #upload-dropzone {
-    padding: var(--space-4);
-  }
-
   /* Better touch targets - minimum 44x44px */
   button {
     min-height: 44px;
@@ -1886,24 +1859,6 @@ input:focus-visible {
     max-height: 200px;
   }
 
-  /* Upload dropzone compact - responsive padding scale */
-  #upload-dropzone {
-    padding: var(--space-4);
-  }
-
-  #upload-dropzone svg {
-    width: 28px;
-    height: 28px;
-  }
-
-  #upload-dropzone p {
-    font-size: 0.8rem;
-  }
-
-  .upload-note {
-    font-size: 0.7rem !important;
-  }
-
   /* Code blocks compact */
   .code-block {
     font-size: 10px;
@@ -2010,24 +1965,6 @@ input:focus-visible {
   margin: 0;
   font-size: 0.85rem;
   line-height: var(--line-height-normal);
-}
-
-/* Upload icon */
-.upload-icon {
-  margin-bottom: var(--space-1);
-  color: var(--color-text-light);
-  transition: color 0.2s ease, transform 0.2s ease;
-  /* Ensure perfect centering */
-  display: block;
-  width: 36px;
-  height: 36px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-#upload-dropzone:hover .upload-icon {
-  color: var(--color-primary);
-  transform: translateY(-4px) scale(1.1);
 }
 
 /* Success button variant */
