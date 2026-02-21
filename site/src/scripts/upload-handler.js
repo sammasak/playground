@@ -9,6 +9,9 @@ const uploadedBots = new Map();
 // File size validation constant
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+// Upload limit constant
+const MAX_UPLOADED_BOTS = 10;
+
 /**
  * Initialize upload functionality
  */
@@ -58,6 +61,13 @@ async function handleFileUpload(file, uploadBtn, fileInput, errorDiv) {
   }
   if (file.size > MAX_FILE_SIZE) {
     showError(errorDiv, 'File too large. Maximum size is 10MB.');
+    fileInput.value = '';
+    return;
+  }
+
+  // Check upload limit
+  if (uploadedBots.size >= MAX_UPLOADED_BOTS) {
+    showError(errorDiv, `Maximum ${MAX_UPLOADED_BOTS} uploaded bots allowed. Remove a bot before uploading more.`);
     fileInput.value = '';
     return;
   }

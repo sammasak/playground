@@ -160,8 +160,16 @@ async function loadUploadedBot(botData, color) {
     });
 
     const botExport = instance.bot || instance['chess:bot/bot@0.1.0'];
-    if (!botExport || typeof botExport.getName !== 'function') {
+    if (!botExport) {
       throw new Error('Invalid bot component. Must implement chess:bot@0.1.0 interface');
+    }
+
+    // Validate all required methods
+    const required = ['getName', 'getDescription', 'selectMove', 'suggestMove', 'onGameStart'];
+    for (const method of required) {
+      if (typeof botExport[method] !== 'function') {
+        throw new Error(`Invalid bot component. Missing required method: ${method}`);
+      }
     }
 
     botHostModule.setGame(state.game);
