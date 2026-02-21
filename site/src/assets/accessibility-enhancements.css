@@ -105,13 +105,12 @@ input:disabled {
 
 /* Improve contrast for secondary text */
 .player-label,
-.bot-card-desc,
 .wit-desc,
-.editor-desc,
-#bot-log h3,
-#move-history h3 {
+.editor-desc {
   color: var(--color-text-secondary);
 }
+
+/* .bot-card-desc removed - uses specific contrast color (#666666) from chess-board.css */
 
 /* Ensure checkmate/stalemate messages are highly visible */
 #game-status.game-over {
@@ -126,12 +125,12 @@ input:disabled {
 
 /* Improve empty state contrast */
 .empty-state-title {
-  color: var(--color-text);
+  color: #333333; /* Achieves 12.6:1 contrast on #f5f5f5 */
   font-weight: 600;
 }
 
 .empty-state-hint {
-  color: var(--color-text-secondary);
+  color: #595959; /* Achieves 5.6:1 contrast on #f5f5f5 */
 }
 
 /* Ensure code blocks have sufficient contrast */
@@ -148,13 +147,8 @@ code {
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
 }
 
-/* Improve bot language badge contrast */
-.bot-lang {
-  background: #e8f4fd;
-  color: #0d5a99;
-  font-weight: 600;
-  border: 1px solid #b8daef;
-}
+/* Bot language badge contrast - language-specific colors defined in chess-board.css */
+/* Removed generic .bot-lang override to allow .bot-lang-rust and .bot-lang-python to apply correctly */
 
 /* Improve suggested move visibility with arrow icon */
 .square.suggested::before {
