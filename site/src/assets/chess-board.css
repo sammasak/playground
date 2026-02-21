@@ -870,12 +870,35 @@ input:focus-visible {
 }
 
 .bot-lang {
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   background: var(--color-accent-green-bg);
   color: #2d5016; /* WCAG AA compliant: 7.1:1 contrast on green background */
-  padding: 1px var(--space-2);
   border-radius: var(--radius-sm);
-  font-weight: 600;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  cursor: help;
+}
+
+.bot-lang:hover {
+  transform: scale(1.1);
+  background: #d4edda;
+}
+
+.bot-lang svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bot-lang-python {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.bot-lang-python:hover {
+  background: #bbdefb;
 }
 
 .bot-card-desc {
@@ -915,15 +938,27 @@ input:focus-visible {
 }
 
 .bot-source-link {
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2em;
   color: var(--color-text-light);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
   margin-left: auto;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: transform 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
 .bot-source-link:hover {
   color: var(--color-primary);
+  background: rgba(52, 152, 219, 0.1);
+  transform: translateY(-2px);
+}
+
+.bot-source-link svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Upload Dropzone with responsive padding scale: 24px → 20px → 16px → 12px */
