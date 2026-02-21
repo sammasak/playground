@@ -6,6 +6,7 @@ import {
   getEditorCode, setEditorCode, getInitialCode,
 } from './python-editor.js';
 import { toast } from './toast.js';
+import { getUploadedBot } from './upload-handler.js';
 
 let state = null;
 let base = '';
@@ -60,6 +61,13 @@ export async function loadBot(botId, color = null) {
       game: state.game, pythonBotCode: state.pythonBotCode, addLogEntry, MontyClass,
     });
   }
+  // Check if this is an uploaded custom bot (from new upload section)
+  if (botId.startsWith('custom-bot-')) {
+    const uploadedBot = getUploadedBot(botId);
+    if (uploadedBot) {
+      return await loadUploadedBot(uploadedBot, color);
+    }
+  }
   if (botId === 'random-bot' || botId === 'smart-bot') {
     try {
       const botModule = botId === 'smart-bot'
@@ -96,6 +104,85 @@ export async function loadBot(botId, color = null) {
     };
   }
   return null;
+}
+
+async function loadUploadedBot(botData, color) {
+  try {
+    const bytes = new Uint8Array(botData.arrayBuffer);
+
+    // Use same jco transpilation as existing upload
+    const { transpile } = await import(`@bytecodealliance/jco/component`);
+    const { files } = await transpile(bytes, {
+      name: botData.name.replace(/\s+/g, '-'),
+      instantiation: { tag: 'async' },
+      map: [['chess:bot/host', './bot-host.js']],
+      noNodejsCompat: true,
+      base64Cutoff: 0,
+      tlaCompat: true,
+    });
+
+    let mainJsUrl = null;
+    for (const [filename, content] of files) {
+      const isJs = filename.endsWith('.js');
+      const blob = new Blob([content], { type: isJs ? 'text/javascript' : 'application/wasm' });
+      const url = URL.createObjectURL(blob);
+      state.activeBlobUrls.add(url);
+      if (isJs && !mainJsUrl) mainJsUrl = url;
+    }
+
+    if (!mainJsUrl) throw new Error('Transpilation produced no JS output');
+
+    const mod = await import(/* @vite-ignore */ mainJsUrl);
+    const botHostModule = await import(`${base}bots/bot-host.js`);
+
+    const wasmLookup = {};
+    for (const [filename, content] of files) {
+      if (filename.endsWith('.wasm')) {
+        wasmLookup['./' + filename] = content;
+      }
+    }
+
+    const getCoreModule = (path) => {
+      const content = wasmLookup[path];
+      if (content) return WebAssembly.compile(content);
+      throw new Error(`WASM module not found: ${path}`);
+    };
+
+    const instance = await mod.instantiate(getCoreModule, {
+      'chess:bot/host': {
+        getBoard: () => botHostModule.getBoard(),
+        getLegalMoves: () => botHostModule.getLegalMoves(),
+        isCheck: () => botHostModule.isCheck(),
+        getGameResult: () => botHostModule.getGameResult(),
+        getFen: () => botHostModule.getFen(),
+        log: (msg) => botHostModule.log(msg),
+      },
+    });
+
+    const botExport = instance.bot || instance['chess:bot/bot@0.1.0'];
+    if (!botExport || typeof botExport.getName !== 'function') {
+      throw new Error('Invalid bot component. Must implement chess:bot@0.1.0 interface');
+    }
+
+    botHostModule.setGame(state.game);
+    botHostModule.setLogCallback((msg) => {
+      const turn = state.game ? state.game.getTurn() : '?';
+      const label = turn === 'white' ? 'White' : 'Black';
+      addLogEntry(`[${label}] ${msg}`);
+    });
+
+    return {
+      getName: () => botExport.getName(),
+      getDescription: () => botExport.getDescription(),
+      onGameStart: () => botExport.onGameStart(),
+      selectMove: () => botExport.selectMove(),
+      suggestMove: () => botExport.suggestMove(),
+    };
+  } catch (error) {
+    addLogEntry(`Failed to load uploaded bot: ${error.message || String(error)}`);
+    console.error('Uploaded bot load error:', error);
+    return null;
+  }
 }
 
 // --- Bot Match ---
