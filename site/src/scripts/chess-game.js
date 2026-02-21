@@ -86,7 +86,8 @@ setupPythonEditorButtons({
 
 botManager.setupPlayerDropdowns();
 botManager.setupBotModeRadios();
-botManager.setupBotUpload();
+// OLD UPLOAD SYSTEM - REMOVED (conflicts with new upload-handler.js)
+// botManager.setupBotUpload();
 botManager.setupBotCards();
 
 async function initGame() {

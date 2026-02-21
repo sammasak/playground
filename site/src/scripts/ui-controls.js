@@ -212,6 +212,12 @@ function undoMove() {
 }
 
 function resetGame() {
+  // Add this check at the very beginning
+  if (!state.game) {
+    console.warn('Game not initialized yet');
+    return;
+  }
+
   state.gameGeneration++;
   stopBotMatch();
   dismissPromotionModal();

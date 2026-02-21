@@ -414,6 +414,12 @@ export function setupBotModeRadios() {
 }
 
 export function setupBotUpload() {
+  // DEPRECATED: This function is replaced by upload-handler.js
+  // The old upload-dropzone element no longer exists in the redesigned UI
+  console.warn('setupBotUpload is deprecated - using upload-handler.js instead');
+  return;
+
+  // Old code below is kept for reference but never executes...
   document.getElementById('bot-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
