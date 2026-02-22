@@ -410,20 +410,20 @@ li {
 .square[aria-label*="white"] {
   color: #ffffff;
   text-shadow:
-    -1px -1px 0 #000,
-    1px -1px 0 #000,
-    -1px 1px 0 #000,
-    1px 1px 0 #000;
+    -1px -1px 0 #000, 0 -1px 0 #000, 1px -1px 0 #000,
+    -1px  0   0 #000,                 1px  0   0 #000,
+    -1px  1px 0 #000, 0  1px 0 #000, 1px  1px 0 #000,
+    0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Black pieces - black with white outline for visibility on dark squares */
 .square[aria-label*="black"] {
   color: #000000;
   text-shadow:
-    -1px -1px 0 #fff,
-    1px -1px 0 #fff,
-    -1px 1px 0 #fff,
-    1px 1px 0 #fff;
+    -1px -1px 0 #fff, 0 -1px 0 #fff, 1px -1px 0 #fff,
+    -1px  0   0 #fff,                 1px  0   0 #fff,
+    -1px  1px 0 #fff, 0  1px 0 #fff, 1px  1px 0 #fff,
+    0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 /* Selected piece - yellow highlight */
