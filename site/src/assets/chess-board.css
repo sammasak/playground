@@ -409,11 +409,21 @@ li {
 /* White pieces - solid white with subtle drop shadows for depth */
 .square[aria-label*="white"] {
   color: #ffffff;
-  text-shadow: 0 3px 5px rgba(0, 0, 0, 0.4);  /* Just the drop shadow, no outline */
+  text-shadow:
+    0 -0.5px 0.5px rgba(255, 255, 255, 0.3),  /* subtle top highlight */
+    0 3px 5px rgba(0, 0, 0, 0.4);              /* existing shadow */
   filter:
     drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45))
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))
     brightness(1.03);
+}
+
+/* Enhanced depth for white pieces on dark squares */
+.square.dark[aria-label*="white"] {
+  filter:
+    drop-shadow(0 4px 7px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4))
+    brightness(1.05);
 }
 
 /* Black pieces - black with white outline for visibility on dark squares */
