@@ -1195,12 +1195,16 @@ input:focus-visible {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-primary);
   animation: slide-in-up 400ms ease;
-  color: #2c5f1a;  /* Dark green text for 6.7:1 contrast on #e8f5e0 background (WCAG AA+) */
+  color: #28551a;  /* Dark green text for ~7.2:1 contrast on #e8f5e0 background (WCAG AAA) */
   font-size: 1.05rem;
 }
 
 #suggested-move strong {
   font-weight: 600;
+}
+
+#suggested-move #suggestion {
+  font-weight: 700;
 }
 
 @keyframes slide-in-up {
