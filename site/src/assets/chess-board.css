@@ -406,14 +406,10 @@ li {
 .square.light { background-color: var(--color-board-light); }
 .square.dark { background-color: var(--color-board-dark); }
 
-/* White pieces - white with black outline for visibility on light squares */
+/* White pieces - solid white with subtle drop shadows for depth */
 .square[aria-label*="white"] {
   color: #ffffff;
-  text-shadow:
-    -1.5px -1.5px 0 #000, 0 -1.5px 0 #000, 1.5px -1.5px 0 #000,
-    -1.5px  0    0 #000,                    1.5px  0    0 #000,
-    -1.5px  1.5px 0 #000, 0  1.5px 0 #000, 1.5px  1.5px 0 #000,
-    0 3px 5px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 3px 5px rgba(0, 0, 0, 0.4);  /* Just the drop shadow, no outline */
   filter:
     drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))
     drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45))
