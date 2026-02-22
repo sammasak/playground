@@ -406,6 +406,26 @@ li {
 .square.light { background-color: var(--color-board-light); }
 .square.dark { background-color: var(--color-board-dark); }
 
+/* White pieces - white with black outline for visibility on light squares */
+.square[aria-label*="white"] {
+  color: #ffffff;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000;
+}
+
+/* Black pieces - black with white outline for visibility on dark squares */
+.square[aria-label*="black"] {
+  color: #000000;
+  text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff;
+}
+
 /* Selected piece - yellow highlight */
 .square.selected {
   background-color: rgba(255, 235, 59, 0.6) !important;
