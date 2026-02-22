@@ -409,23 +409,31 @@ li {
 /* White pieces - white with black outline for visibility on light squares */
 .square[aria-label*="white"] {
   color: #ffffff;
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.5));
   text-shadow:
     -1.5px -1.5px 0 #000, 0 -1.5px 0 #000, 1.5px -1.5px 0 #000,
     -1.5px  0    0 #000,                    1.5px  0    0 #000,
     -1.5px  1.5px 0 #000, 0  1.5px 0 #000, 1.5px  1.5px 0 #000,
     0 3px 5px rgba(0, 0, 0, 0.4);
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))
+    drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))
+    brightness(1.03);
 }
 
 /* Black pieces - black with white outline for visibility on dark squares */
 .square[aria-label*="black"] {
   color: #000000;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
   text-shadow:
     -1.5px -1.5px 0 #fff, 0 -1.5px 0 #fff, 1.5px -1.5px 0 #fff,
     -1.5px  0    0 #fff,                    1.5px  0    0 #fff,
     -1.5px  1.5px 0 #fff, 0  1.5px 0 #fff, 1.5px  1.5px 0 #fff,
     0 3px 5px rgba(0, 0, 0, 0.35);
+  filter:
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25))
+    brightness(0.98);
 }
 
 /* Selected piece - yellow highlight */
