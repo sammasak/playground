@@ -267,6 +267,13 @@ details summary:active {
   }
 }
 
+/* Accessibility: Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  #suggested-move {
+    animation: none;
+  }
+}
+
 /* Enhanced focus states with better visibility - standardized to 3px solid purple, 2px offset */
 button:focus-visible {
   outline: 3px solid var(--color-purple);
