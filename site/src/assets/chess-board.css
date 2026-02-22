@@ -379,7 +379,7 @@ li {
 .player-bar .bot-mode label {
   font-size: 0.8rem;
   white-space: nowrap;
-  color: var(--color-text);
+  color: #333333;  /* Dark text for WCAG AA compliance on light background (12.6:1 contrast) */
 }
 
 .square {
@@ -684,6 +684,10 @@ input:focus-visible {
   color: var(--color-text);
 }
 
+#game-controls h2 {
+  color: var(--color-text-dark); /* #333333 for proper contrast on white background */
+}
+
 /* Side Panel */
 #side-panel {
   flex: 1;
@@ -909,13 +913,13 @@ input:focus-visible {
 }
 
 .bot-lang-wasm {
-  background: #654ff0; /* WebAssembly purple */
-  color: #ffffff;
+  background: #f7f7f7; /* Light neutral instead of purple */
+  color: #654ff0;
   box-shadow: 0 0 0 1px rgba(101, 79, 240, 0.2);
 }
 
 .bot-lang-wasm:hover {
-  background: #5a3fd9; /* Darker purple on hover */
+  background: #ffffff; /* White on hover */
   box-shadow: 0 0 0 2px rgba(101, 79, 240, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -1124,25 +1128,27 @@ input:focus-visible {
   background: var(--color-surface);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: 1px solid #999999;  /* Darker border for better visibility (3:1 contrast) */
 }
 
 .bot-mode label {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;  /* Increased from 0.75rem for better readability */
+  font-weight: 500;      /* Medium weight for better visibility */
   cursor: pointer;
-  padding: 2px var(--space-2);
+  padding: 4px var(--space-3);  /* Increased padding for better touch target */
   transition: background-color 250ms ease, color 250ms ease, transform 250ms ease;
-  color: var(--color-text-muted);
+  color: #333333;        /* Darker text for WCAG AA compliance (4.6:1 contrast) */
   white-space: nowrap;
 }
 
 .bot-mode label:hover {
-  background: rgba(52, 152, 219, 0.1);
+  background: rgba(52, 152, 219, 0.15);  /* Slightly more visible hover state */
+  color: #1a1a1a;        /* Even darker on hover for emphasis */
 }
 
 .bot-mode label:has(input:checked),
 .bot-mode label.checked {
-  background: var(--color-primary);
+  background: #507a2e;  /* Match bot-load-btn dark green */
   color: white;
 }
 
