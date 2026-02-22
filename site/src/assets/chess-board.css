@@ -1133,8 +1133,8 @@ input:focus-visible {
 }
 
 .bot-mode label {
-  font-size: 0.8125rem;  /* Increased from 0.75rem for better readability */
-  font-weight: 500;      /* Medium weight for better visibility */
+  font-size: 0.875rem;   /* 14px - meets recommended minimum font size for body text */
+  font-weight: 600;      /* Semi-bold weight for better readability and visual hierarchy */
   cursor: pointer;
   padding: 4px var(--space-3);  /* Increased padding for better touch target */
   transition: background-color 300ms ease, color 300ms ease, transform 300ms ease;
