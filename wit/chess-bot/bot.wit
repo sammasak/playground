@@ -1,0 +1,55 @@
+// WIT interface for chess bot plugins
+package chess:bot@0.1.0;
+
+// Interface that the host provides to bots
+interface host {
+    use chess:types/types@0.1.0.{board-state, move, game-result};
+
+    // Get the current board state (includes move history)
+    get-board: func() -> board-state;
+
+    // Get all legal moves for the current position
+    get-legal-moves: func() -> list<move>;
+
+    // Check if the current side is in check
+    is-check: func() -> bool;
+
+    // Get the current game result
+    get-game-result: func() -> game-result;
+
+    // Get the FEN string for the current position
+    get-fen: func() -> string;
+
+    // Log a message (for debugging)
+    log: func(message: string);
+}
+
+// Interface that bots implement
+interface bot {
+    use chess:types/types@0.1.0.{move, color};
+
+    // Get the bot's name
+    get-name: func() -> string;
+
+    // Get the bot's description
+    get-description: func() -> string;
+
+    // Get the bot's preferred color (or none for either)
+    get-preferred-color: func() -> option<color>;
+
+    // Called when the game starts
+    on-game-start: func();
+
+    // Called when it's the bot's turn to move
+    // Should return a legal move in UCI format
+    select-move: func() -> move;
+
+    // Called to get a suggested move (without making it)
+    suggest-move: func() -> move;
+}
+
+// The world that chess bots live in
+world chess-bot {
+    import host;
+    export bot;
+}

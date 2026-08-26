@@ -1,0 +1,45 @@
+/** @module Interface chess:bot/types@0.1.0 **/
+/**
+ * # Variants
+ * 
+ * ## `"pawn"`
+ * 
+ * ## `"knight"`
+ * 
+ * ## `"bishop"`
+ * 
+ * ## `"rook"`
+ * 
+ * ## `"queen"`
+ * 
+ * ## `"king"`
+ */
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
+/**
+ * # Variants
+ * 
+ * ## `"white"`
+ * 
+ * ## `"black"`
+ */
+export type Color = 'white' | 'black';
+export interface Piece {
+  pieceType: PieceType,
+  color: Color,
+}
+export interface Castling {
+  whiteKingside: boolean,
+  whiteQueenside: boolean,
+  blackKingside: boolean,
+  blackQueenside: boolean,
+}
+export type Square = number;
+export interface BoardState {
+  squares: Array<Piece | undefined>,
+  turn: Color,
+  castlingRights: Castling,
+  enPassant?: Square,
+  halfmoveClock: number,
+  fullmoveNumber: number,
+}
+export type Move = string;

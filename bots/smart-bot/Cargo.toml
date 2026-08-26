@@ -1,0 +1,43 @@
+[package]
+name = "smart-bot"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# `component` pulls in the WIT/Component-Model host glue. On by default so the
+# existing `cargo component build` is unchanged; the egui frontend depends on
+# this crate with `default-features = false` to link only the pure search modules.
+default = ["component"]
+component = []
+
+[dependencies]
+wit-bindgen = "0.41"
+chess-engine = { path = "../../chess-engine", default-features = false }
+
+# Optimize the search hot path even for `cargo test`. The algorithm and its
+# tuning constants (MAX_DEPTH, MAX_NODES, REPETITION_PENALTY) are unchanged;
+# these profiles only make the native test suite run in seconds instead of
+# minutes. The shipped wasm component uses `[profile.release]` from the engine.
+[profile.dev]
+opt-level = 3
+
+[profile.test]
+opt-level = 3
+
+[package.metadata.component]
+package = "chess:smart-bot"
+
+[package.metadata.component.target]
+path = "../../wit/chess-bot"
+world = "chess-bot"
+
+[package.metadata.component.target.dependencies]
+"chess:types" = { path = "../../wit/chess-types" }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"

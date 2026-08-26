@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Chess Playground · egui</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
+      canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+      #loading {
+        position: absolute; inset: 0; display: flex; align-items: center;
+        justify-content: center; color: #cfd3dc; font: 500 18px system-ui, sans-serif;
+      }
+      #loading .spin {
+        width: 22px; height: 22px; margin-right: 12px; border: 3px solid #3a3f4b;
+        border-top-color: #8ab4f8; border-radius: 50%; animation: s 0.9s linear infinite;
+      }
+      @keyframes s { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <canvas id="the_canvas_id"></canvas>
+    <div id="loading"><div class="spin"></div>Loading chess playground…</div>
+    <script type="module">
+      // Load the JS interop glue first so window.__chessGlue exists before the
+      // wasm app calls into it (Monty Python, uploaded bots, LLM banter, toasts).
+      import "./glue.js";
+      import init from "./app.js";
+      init()
+        .then(() => {
+          const el = document.getElementById("loading");
+          if (el) el.remove();
+        })
+        .catch((err) => {
+          const el = document.getElementById("loading");
+          if (el) el.textContent = "Failed to load: " + err;
+          console.error(err);
+        });
+    </script>
+  </body>
+</html>

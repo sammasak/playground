@@ -1,0 +1,37 @@
+[package]
+name = "chess-engine"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance chess engine compiled to WebAssembly"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["component"]
+component = []
+
+[dependencies]
+wit-bindgen = "0.41"
+
+[package.metadata.component]
+package = "chess:engine"
+
+[package.metadata.component.target]
+path = "../wit/chess-engine"
+world = "chess-engine"
+
+[package.metadata.component.target.dependencies]
+"chess:types" = { path = "../wit/chess-types" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"

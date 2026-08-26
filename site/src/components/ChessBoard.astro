@@ -1,0 +1,419 @@
+---
+import { witCode, pythonExample } from '../assets/string-constants.js';
+
+// Chess Board Component with Bot Support
+// Ensure base URL ends with a slash for proper path concatenation
+const rawBase = import.meta.env.BASE_URL || '/';
+const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
+---
+
+<div id="chess-container" data-base={base}>
+  <!-- Skip to main content link -->
+  <a href="#chess-board" class="skip-link">Skip to chess board</a>
+
+  <div id="game-info" role="status" aria-live="polite">
+    <div id="turn-indicator" aria-label="Current turn">White to move</div>
+    <div id="game-status" aria-live="assertive" aria-atomic="true"></div>
+    <div id="move-announcer" class="visually-hidden" role="status" aria-live="assertive" aria-atomic="true"></div>
+  </div>
+
+  <!-- Hidden hint for screen readers about legal moves -->
+  <div id="legal-move-hint" class="visually-hidden">This is a legal move destination</div>
+
+  <div id="main-content">
+    <div id="board-column">
+      <div id="board-section">
+        <!-- Black player bar (plays from top) -->
+        <div class="player-bar player-bar-black">
+          <label for="black-player" class="player-label">Black:</label>
+          <select id="black-player" aria-label="Black player type">
+            <option value="human">Human</option>
+            <option value="random-bot">Random Bot (Rust)</option>
+            <option value="smart-bot">Smart Bot (Rust)</option>
+            <option value="python-smart-bot">Smart Bot (Python)</option>
+            <option value="python-bot">Python Editor Bot</option>
+            <option value="upload">Upload Bot...</option>
+          </select>
+          <div id="black-bot-mode" class="bot-mode" role="radiogroup" aria-label="Black bot mode" style="display: none;">
+            <label title="Bot plays moves automatically"><input type="radio" name="black-mode" value="auto" aria-label="Auto-play mode for black"> Auto-play</label>
+            <label title="Bot suggests moves, you decide"><input type="radio" name="black-mode" value="suggest" checked aria-label="Suggest mode for black"> Suggest</label>
+          </div>
+        </div>
+
+        <!-- Board with coordinate labels -->
+        <div id="board-with-coords">
+          <div id="rank-labels" aria-hidden="true">
+            <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+          </div>
+          <div id="chess-board" role="grid" aria-label="Chess board. Use arrow keys to navigate, Enter or Space to select a piece or make a move, Escape to cancel selection"></div>
+          <div id="file-labels-spacer" aria-hidden="true"></div>
+          <div id="file-labels" aria-hidden="true">
+            <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+          </div>
+        </div>
+
+        <!-- White player bar (plays from bottom) -->
+        <div class="player-bar player-bar-white">
+          <label for="white-player" class="player-label">White:</label>
+          <select id="white-player" aria-label="White player type">
+            <option value="human">Human</option>
+            <option value="random-bot">Random Bot (Rust)</option>
+            <option value="smart-bot">Smart Bot (Rust)</option>
+            <option value="python-smart-bot">Smart Bot (Python)</option>
+            <option value="python-bot">Python Editor Bot</option>
+            <option value="upload">Upload Bot...</option>
+          </select>
+          <div id="white-bot-mode" class="bot-mode" role="radiogroup" aria-label="White bot mode" style="display: none;">
+            <label title="Bot plays moves automatically"><input type="radio" name="white-mode" value="auto" aria-label="Auto-play mode for white"> Auto-play</label>
+            <label title="Bot suggests moves, you decide"><input type="radio" name="white-mode" value="suggest" checked aria-label="Suggest mode for white"> Suggest</label>
+          </div>
+        </div>
+
+        <div id="controls">
+          <button id="reset-btn" class="btn-danger" aria-label="Start a new game" title="Reset the board and start a new game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>New Game</button>
+          <button id="undo-btn" class="btn-secondary" disabled aria-label="Undo last move" title="Undo the last move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>Undo</button>
+          <button id="keyboard-help-btn" class="btn-secondary" aria-label="Show keyboard shortcuts" title="Show keyboard shortcuts"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>Help</button>
+        </div>
+      </div>
+
+      <!-- Game controls (relocated from Controls tab) -->
+      <div id="game-controls">
+        <h2>Bot Controls</h2>
+        <div id="bot-vs-bot-controls" style="display: none;">
+          <h3 class="visually-hidden">Bot Match Controls</h3>
+          <button id="start-match" aria-label="Start bot vs bot match" title="Start automated bot vs bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start Bot Match</button>
+          <button id="pause-match" class="btn-secondary" disabled aria-label="Pause bot match" title="Pause the automated bot match"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
+          <label for="match-speed">
+            Speed: <input type="range" id="match-speed" min="100" max="2000" value="500" aria-valuemin="100" aria-valuemax="2000" aria-valuenow="500" aria-valuetext="500 milliseconds">
+            <span id="speed-label" aria-live="polite">500ms</span>
+          </label>
+        </div>
+
+        <div id="suggested-move" style="display: none;" role="region" aria-label="Bot suggestion">
+          <strong>Suggested move:</strong> <span id="suggestion"></span>
+          <button id="play-suggestion" class="btn-success" aria-label="Play the suggested move" title="Execute the bot's suggested move"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Play it</button>
+        </div>
+
+        <div id="bot-log">
+          <h3>Bot Log</h3>
+          <div id="log-content" role="log" aria-live="polite" aria-atomic="false">
+            <div class="empty-state">
+              <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <defs>
+                  <linearGradient id="empty-state-bot-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="url(#empty-state-bot-gradient)"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="url(#empty-state-bot-gradient)"></path>
+                <circle cx="9" cy="16" r="1" fill="url(#empty-state-bot-gradient)"></circle>
+                <circle cx="15" cy="16" r="1" fill="url(#empty-state-bot-gradient)"></circle>
+              </svg>
+              <p class="empty-state-title">No bot activity yet</p>
+              <p class="empty-state-hint">Select a bot from the dropdowns above to see logs</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Personality chat panel -->
+      <div id="chat-panel">
+        <div id="chat-header">
+          <h3>Bot Banter</h3>
+          <div class="personality-picker">
+            <label for="personality-select">Personality:</label>
+            <select id="personality-select" aria-label="Chess bot personality">
+              <option value="sassy">Sassy</option>
+              <option value="aggressive">Aggressive</option>
+              <option value="kind">Kind</option>
+              <option value="nervous">Nervous</option>
+              <option value="philosophical">Philosophical</option>
+            </select>
+          </div>
+        </div>
+        <div id="chat-content" role="log" aria-live="polite" aria-atomic="false">
+          <div class="empty-state chat-empty-state">
+            <p class="empty-state-title">No banter yet</p>
+            <p class="empty-state-hint">Say something to the bot, or wait for it to react to a capture.</p>
+          </div>
+        </div>
+        <form id="chat-form" class="chat-input-row" autocomplete="off">
+          <label for="chat-input" class="visually-hidden">Message to the chess bot</label>
+          <input
+            type="text"
+            id="chat-input"
+            name="chat-input"
+            maxlength="80"
+            placeholder="Say something to the bot… (80 chars)"
+            aria-label="Say something to the chess bot"
+            aria-describedby="chat-input-hint"
+          />
+          <button type="submit" id="chat-send" class="btn-primary" aria-label="Send message to the bot">
+            <span id="chat-send-label">Send</span>
+          </button>
+        </form>
+        <p id="chat-input-hint" class="visually-hidden">Type up to 80 characters and press Enter or Send. The bot replies using the current board.</p>
+      </div>
+
+      <div id="move-history">
+        <h2 class="visually-hidden">Game Information</h2>
+        <h3>Move History</h3>
+        <div id="moves-list" role="log" aria-live="polite" aria-atomic="false">
+          <div class="empty-state">
+            <svg class="empty-state-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <defs>
+                <linearGradient id="empty-state-chess-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#3498db;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="url(#empty-state-chess-gradient)"></rect>
+              <line x1="3" y1="7.5" x2="21" y2="7.5" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="3" y1="16.5" x2="21" y2="16.5" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="7.5" y1="3" x2="7.5" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="12" y1="3" x2="12" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+              <line x1="16.5" y1="3" x2="16.5" y2="21" stroke="url(#empty-state-chess-gradient)"></line>
+            </svg>
+            <p class="empty-state-title">No moves recorded</p>
+            <p class="empty-state-hint">Click on a piece to make your first move</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="side-panel">
+      <div id="tab-bar" role="tablist" aria-label="Bot configuration tabs">
+        <button class="tab active" data-tab="wit-tab" role="tab" aria-selected="true" aria-controls="wit-tab" id="tab-btn-wit">Bot Interface</button>
+        <button class="tab" data-tab="editor-tab" role="tab" aria-selected="false" aria-controls="editor-tab" id="tab-btn-editor">Python Editor</button>
+      </div>
+
+      <div id="tab-content">
+        <!-- WIT Interface Tab -->
+        <div id="wit-tab" class="tab-pane active" role="tabpanel" aria-labelledby="tab-btn-wit" tabindex="0">
+          <h2 class="visually-hidden">Bot Interface</h2>
+          <div class="wit-section">
+            <h3>Example Bots</h3>
+            <div class="bot-cards">
+              <div class="bot-card">
+                <div class="bot-card-header">
+                  <strong>Random Bot</strong>
+                  <span class="bot-lang" title="Written in Rust">
+                    <svg width="18" height="18" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:1.41421;" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="ferris-gradient-1" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1,0,1.38778e-17,-1,0,-0.000650515)"><stop offset="0" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="0.33" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(244,150,0);stop-opacity:1"/></linearGradient>
+                        <linearGradient id="ferris-gradient-2" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1,0,0,-1,0,1.23438e-06)"><stop offset="0" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.15" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.74" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(247,76,0);stop-opacity:1"/></linearGradient>
+                        <linearGradient id="ferris-gradient-3" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1,1.32349e-23,1.32349e-23,-1,0,-9.1568e-07)"><stop offset="0" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.15" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.74" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(247,76,0);stop-opacity:1"/></linearGradient>
+                      </defs>
+                      <g transform="matrix(1,0,0,1,597.344,637.02)"><path d="M0,-279.559C-121.238,-279.559 -231.39,-264.983 -312.939,-241.23L-312.939,-38.329C-231.39,-14.575 -121.238,0 0,0C138.76,0 262.987,-19.092 346.431,-49.186L346.431,-230.37C262.987,-260.465 138.76,-279.559 0,-279.559" style="fill:rgb(165,43,0);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,1068.75,575.642)"><path d="M0,-53.32L-14.211,-82.761C-14.138,-83.879 -14.08,-84.998 -14.08,-86.121C-14.08,-119.496 -48.786,-150.256 -107.177,-174.883L-107.177,2.643C-79.932,-8.849 -57.829,-21.674 -42.021,-35.482C-46.673,-16.775 -62.585,21.071 -75.271,47.686C-96.121,85.752 -103.671,118.889 -102.703,120.53C-102.086,121.563 -94.973,110.59 -84.484,92.809C-60.074,58.028 -13.82,-8.373 -4.575,-25.287C5.897,-44.461 0,-53.32 0,-53.32" style="fill:rgb(165,43,0);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,149.064,591.421)"><path d="M0,-99.954C0,-93.526 1.293,-87.194 3.788,-80.985L-4.723,-65.835C-4.723,-65.835 -11.541,-56.989 0.465,-38.327C11.055,-21.872 64.1,42.54 92.097,76.271C104.123,93.564 112.276,104.216 112.99,103.187C114.114,101.554 105.514,69.087 81.631,32.046C70.487,12.151 57.177,-14.206 49.189,-33.675C71.492,-19.559 100.672,-6.755 135.341,4.265L135.341,-204.17C51.797,-177.622 0,-140.737 0,-99.954" style="fill:rgb(165,43,0);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(-65.8097,-752.207,-752.207,65.8097,621.707,796.312)"><path d="M0.991,-0.034L0.933,0.008C0.933,0.014 0.933,0.02 0.933,0.026L0.99,0.069C0.996,0.073 0.999,0.08 0.998,0.087C0.997,0.094 0.992,0.1 0.986,0.103L0.92,0.133C0.919,0.139 0.918,0.145 0.916,0.15L0.964,0.203C0.968,0.208 0.97,0.216 0.968,0.222C0.965,0.229 0.96,0.234 0.953,0.236L0.882,0.254C0.88,0.259 0.877,0.264 0.875,0.27L0.91,0.33C0.914,0.336 0.914,0.344 0.91,0.35C0.907,0.356 0.9,0.36 0.893,0.361L0.82,0.365C0.817,0.369 0.813,0.374 0.81,0.379L0.832,0.445C0.835,0.452 0.833,0.459 0.828,0.465C0.824,0.47 0.816,0.473 0.809,0.472L0.737,0.462C0.733,0.466 0.729,0.47 0.724,0.474L0.733,0.544C0.734,0.551 0.731,0.558 0.725,0.562C0.719,0.566 0.711,0.568 0.704,0.565L0.636,0.542C0.631,0.546 0.626,0.549 0.621,0.552L0.615,0.621C0.615,0.629 0.61,0.635 0.604,0.638C0.597,0.641 0.589,0.641 0.583,0.638L0.521,0.602C0.52,0.603 0.519,0.603 0.518,0.603L0.406,0.729C0.406,0.729 0.394,0.747 0.359,0.725C0.329,0.705 0.206,0.599 0.141,0.543C0.109,0.52 0.089,0.504 0.09,0.502C0.093,0.499 0.149,0.509 0.217,0.554C0.278,0.588 0.371,0.631 0.38,0.619C0.38,0.619 0.396,0.604 0.406,0.575C0.406,0.575 0.406,0.575 0.406,0.575C0.407,0.576 0.407,0.576 0.406,0.575C0.406,0.575 0.091,0.024 0.305,-0.531C0.311,-0.593 0.275,-0.627 0.275,-0.627C0.266,-0.639 0.178,-0.598 0.12,-0.566C0.055,-0.523 0.002,-0.513 0,-0.516C-0.001,-0.518 0.018,-0.533 0.049,-0.555C0.11,-0.608 0.227,-0.707 0.256,-0.726C0.289,-0.748 0.301,-0.73 0.301,-0.73L0.402,-0.615C0.406,-0.614 0.41,-0.613 0.415,-0.613L0.47,-0.658C0.475,-0.663 0.483,-0.664 0.49,-0.662C0.497,-0.66 0.502,-0.655 0.504,-0.648L0.522,-0.58C0.527,-0.578 0.533,-0.576 0.538,-0.574L0.602,-0.608C0.608,-0.612 0.616,-0.612 0.623,-0.608C0.629,-0.605 0.633,-0.599 0.633,-0.592L0.637,-0.522C0.642,-0.519 0.647,-0.515 0.652,-0.512L0.721,-0.534C0.728,-0.536 0.736,-0.535 0.741,-0.531C0.747,-0.526 0.75,-0.519 0.749,-0.512L0.738,-0.443C0.742,-0.439 0.746,-0.435 0.751,-0.431L0.823,-0.439C0.83,-0.44 0.837,-0.437 0.842,-0.432C0.847,-0.426 0.848,-0.419 0.845,-0.412L0.821,-0.347C0.824,-0.342 0.828,-0.337 0.831,-0.332L0.903,-0.327C0.911,-0.327 0.917,-0.322 0.92,-0.316C0.924,-0.31 0.924,-0.302 0.92,-0.296L0.883,-0.236C0.885,-0.231 0.887,-0.226 0.889,-0.22L0.959,-0.202C0.966,-0.2 0.972,-0.195 0.974,-0.188C0.976,-0.181 0.974,-0.174 0.969,-0.168L0.92,-0.116C0.921,-0.111 0.923,-0.105 0.924,-0.099L0.988,-0.068C0.995,-0.065 0.999,-0.059 1,-0.052C1.001,-0.045 0.997,-0.038 0.991,-0.034ZM0.406,0.575C0.406,0.575 0.406,0.575 0.406,0.575C0.406,0.575 0.406,0.575 0.406,0.575Z" style="fill:url(#ferris-gradient-1);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,450.328,483.629)"><path d="M0,167.33C-1.664,165.91 -2.536,165.068 -2.536,165.068L140.006,153.391C23.733,0 -69.418,122.193 -79.333,135.855L-79.333,167.33L0,167.33Z" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,747.12,477.333)"><path d="M0,171.974C1.663,170.554 2.536,169.71 2.536,169.71L-134.448,159.687C-18.12,0 69.421,126.835 79.335,140.497L79.335,171.974L0,171.974Z" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(-1.53e-05,-267.211,-267.211,1.53e-05,809.465,764.23)"><path d="M1,-0.586C1,-0.586 0.768,-0.528 0.524,-0.165L0.5,-0.064C0.5,-0.064 1.1,0.265 0.424,0.731C0.424,0.731 0.508,0.586 0.405,0.197C0.405,0.197 0.131,0.376 0.14,0.736C0.14,0.736 -0.275,0.391 0.324,-0.135C0.324,-0.135 0.539,-0.691 1,-0.736L1,-0.586Z" style="fill:url(#ferris-gradient-2);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,677.392,509.61)"><path d="M0,-92.063C0,-92.063 43.486,-139.678 86.974,-92.063C86.974,-92.063 121.144,-28.571 86.974,3.171C86.974,3.171 31.062,47.615 0,3.171C0,3.171 -37.275,-31.75 0,-92.063" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,727.738,435.209)"><path d="M0,0.002C0,18.543 -10.93,33.574 -24.408,33.574C-37.885,33.574 -48.814,18.543 -48.814,0.002C-48.814,-18.539 -37.885,-33.572 -24.408,-33.572C-10.93,-33.572 0,-18.539 0,0.002" style="fill:white;fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,483.3,502.984)"><path d="M0,-98.439C0,-98.439 74.596,-131.467 94.956,-57.748C94.956,-57.748 116.283,28.178 33.697,33.028C33.697,33.028 -71.613,12.745 0,-98.439" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,520.766,436.428)"><path d="M0,0C0,19.119 -11.27,34.627 -25.173,34.627C-39.071,34.627 -50.344,19.119 -50.344,0C-50.344,-19.124 -39.071,-34.627 -25.173,-34.627C-11.27,-34.627 0,-19.124 0,0" style="fill:white;fill-rule:nonzero;"/></g>
+                      <g transform="matrix(-1.53e-05,-239.021,-239.021,1.53e-05,402.161,775.388)"><path d="M0.367,0.129C-0.364,-0.441 0.223,-0.711 0.223,-0.711C0.259,-0.391 0.472,-0.164 0.472,-0.164C0.521,-0.548 0.525,-0.77 0.525,-0.77C1.203,-0.256 0.589,0.161 0.589,0.161C0.627,0.265 0.772,0.372 0.906,0.451L1,0.77C0.376,0.403 0.367,0.129 0.367,0.129Z" style="fill:url(#ferris-gradient-3);fill-rule:nonzero;"/></g>
+                    </svg>
+                  </span>
+                </div>
+                <p class="bot-card-desc">Picks a random legal move.</p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="white" aria-label="Load Random Bot as white player" title="Load Random Bot as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="random-bot" data-color="black" aria-label="Load Random Bot as black player" title="Load Random Bot as black player">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/random-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Random Bot source code on GitHub" title="View source code on GitHub">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+              <div class="bot-card">
+                <div class="bot-card-header">
+                  <strong>Smart Bot</strong>
+                  <span class="bot-lang" title="Written in Rust">
+                    <svg width="18" height="18" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:1.41421;" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="ferris-gradient-4" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1,0,1.38778e-17,-1,0,-0.000650515)"><stop offset="0" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="0.33" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(244,150,0);stop-opacity:1"/></linearGradient>
+                        <linearGradient id="ferris-gradient-5" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1,0,0,-1,0,1.23438e-06)"><stop offset="0" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.15" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.74" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(247,76,0);stop-opacity:1"/></linearGradient>
+                        <linearGradient id="ferris-gradient-6" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1,1.32349e-23,1.32349e-23,-1,0,-9.1568e-07)"><stop offset="0" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.15" style="stop-color:rgb(204,58,0);stop-opacity:1"/><stop offset="0.74" style="stop-color:rgb(247,76,0);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(247,76,0);stop-opacity:1"/></linearGradient>
+                      </defs>
+                      <g transform="matrix(1,0,0,1,597.344,637.02)"><path d="M0,-279.559C-121.238,-279.559 -231.39,-264.983 -312.939,-241.23L-312.939,-38.329C-231.39,-14.575 -121.238,0 0,0C138.76,0 262.987,-19.092 346.431,-49.186L346.431,-230.37C262.987,-260.465 138.76,-279.559 0,-279.559" style="fill:rgb(165,43,0);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,1068.75,575.642)"><path d="M0,-53.32L-14.211,-82.761C-14.138,-83.879 -14.08,-84.998 -14.08,-86.121C-14.08,-119.496 -48.786,-150.256 -107.177,-174.883L-107.177,2.643C-79.932,-8.849 -57.829,-21.674 -42.021,-35.482C-46.673,-16.775 -62.585,21.071 -75.271,47.686C-96.121,85.752 -103.671,118.889 -102.703,120.53C-102.086,121.563 -94.973,110.59 -84.484,92.809C-60.074,58.028 -13.82,-8.373 -4.575,-25.287C5.897,-44.461 0,-53.32 0,-53.32" style="fill:rgb(165,43,0);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,149.064,591.421)"><path d="M0,-99.954C0,-93.526 1.293,-87.194 3.788,-80.985L-4.723,-65.835C-4.723,-65.835 -11.541,-56.989 0.465,-38.327C11.055,-21.872 64.1,42.54 92.097,76.271C104.123,93.564 112.276,104.216 112.99,103.187C114.114,101.554 105.514,69.087 81.631,32.046C70.487,12.151 57.177,-14.206 49.189,-33.675C71.492,-19.559 100.672,-6.755 135.341,4.265L135.341,-204.17C51.797,-177.622 0,-140.737 0,-99.954" style="fill:rgb(165,43,0);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(-65.8097,-752.207,-752.207,65.8097,621.707,796.312)"><path d="M0.991,-0.034L0.933,0.008C0.933,0.014 0.933,0.02 0.933,0.026L0.99,0.069C0.996,0.073 0.999,0.08 0.998,0.087C0.997,0.094 0.992,0.1 0.986,0.103L0.92,0.133C0.919,0.139 0.918,0.145 0.916,0.15L0.964,0.203C0.968,0.208 0.97,0.216 0.968,0.222C0.965,0.229 0.96,0.234 0.953,0.236L0.882,0.254C0.88,0.259 0.877,0.264 0.875,0.27L0.91,0.33C0.914,0.336 0.914,0.344 0.91,0.35C0.907,0.356 0.9,0.36 0.893,0.361L0.82,0.365C0.817,0.369 0.813,0.374 0.81,0.379L0.832,0.445C0.835,0.452 0.833,0.459 0.828,0.465C0.824,0.47 0.816,0.473 0.809,0.472L0.737,0.462C0.733,0.466 0.729,0.47 0.724,0.474L0.733,0.544C0.734,0.551 0.731,0.558 0.725,0.562C0.719,0.566 0.711,0.568 0.704,0.565L0.636,0.542C0.631,0.546 0.626,0.549 0.621,0.552L0.615,0.621C0.615,0.629 0.61,0.635 0.604,0.638C0.597,0.641 0.589,0.641 0.583,0.638L0.521,0.602C0.52,0.603 0.519,0.603 0.518,0.603L0.406,0.729C0.406,0.729 0.394,0.747 0.359,0.725C0.329,0.705 0.206,0.599 0.141,0.543C0.109,0.52 0.089,0.504 0.09,0.502C0.093,0.499 0.149,0.509 0.217,0.554C0.278,0.588 0.371,0.631 0.38,0.619C0.38,0.619 0.396,0.604 0.406,0.575C0.406,0.575 0.406,0.575 0.406,0.575C0.407,0.576 0.407,0.576 0.406,0.575C0.406,0.575 0.091,0.024 0.305,-0.531C0.311,-0.593 0.275,-0.627 0.275,-0.627C0.266,-0.639 0.178,-0.598 0.12,-0.566C0.055,-0.523 0.002,-0.513 0,-0.516C-0.001,-0.518 0.018,-0.533 0.049,-0.555C0.11,-0.608 0.227,-0.707 0.256,-0.726C0.289,-0.748 0.301,-0.73 0.301,-0.73L0.402,-0.615C0.406,-0.614 0.41,-0.613 0.415,-0.613L0.47,-0.658C0.475,-0.663 0.483,-0.664 0.49,-0.662C0.497,-0.66 0.502,-0.655 0.504,-0.648L0.522,-0.58C0.527,-0.578 0.533,-0.576 0.538,-0.574L0.602,-0.608C0.608,-0.612 0.616,-0.612 0.623,-0.608C0.629,-0.605 0.633,-0.599 0.633,-0.592L0.637,-0.522C0.642,-0.519 0.647,-0.515 0.652,-0.512L0.721,-0.534C0.728,-0.536 0.736,-0.535 0.741,-0.531C0.747,-0.526 0.75,-0.519 0.749,-0.512L0.738,-0.443C0.742,-0.439 0.746,-0.435 0.751,-0.431L0.823,-0.439C0.83,-0.44 0.837,-0.437 0.842,-0.432C0.847,-0.426 0.848,-0.419 0.845,-0.412L0.821,-0.347C0.824,-0.342 0.828,-0.337 0.831,-0.332L0.903,-0.327C0.911,-0.327 0.917,-0.322 0.92,-0.316C0.924,-0.31 0.924,-0.302 0.92,-0.296L0.883,-0.236C0.885,-0.231 0.887,-0.226 0.889,-0.22L0.959,-0.202C0.966,-0.2 0.972,-0.195 0.974,-0.188C0.976,-0.181 0.974,-0.174 0.969,-0.168L0.92,-0.116C0.921,-0.111 0.923,-0.105 0.924,-0.099L0.988,-0.068C0.995,-0.065 0.999,-0.059 1,-0.052C1.001,-0.045 0.997,-0.038 0.991,-0.034ZM0.406,0.575C0.406,0.575 0.406,0.575 0.406,0.575C0.406,0.575 0.406,0.575 0.406,0.575Z" style="fill:url(#ferris-gradient-4);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,450.328,483.629)"><path d="M0,167.33C-1.664,165.91 -2.536,165.068 -2.536,165.068L140.006,153.391C23.733,0 -69.418,122.193 -79.333,135.855L-79.333,167.33L0,167.33Z" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,747.12,477.333)"><path d="M0,171.974C1.663,170.554 2.536,169.71 2.536,169.71L-134.448,159.687C-18.12,0 69.421,126.835 79.335,140.497L79.335,171.974L0,171.974Z" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(-1.53e-05,-267.211,-267.211,1.53e-05,809.465,764.23)"><path d="M1,-0.586C1,-0.586 0.768,-0.528 0.524,-0.165L0.5,-0.064C0.5,-0.064 1.1,0.265 0.424,0.731C0.424,0.731 0.508,0.586 0.405,0.197C0.405,0.197 0.131,0.376 0.14,0.736C0.14,0.736 -0.275,0.391 0.324,-0.135C0.324,-0.135 0.539,-0.691 1,-0.736L1,-0.586Z" style="fill:url(#ferris-gradient-5);fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,677.392,509.61)"><path d="M0,-92.063C0,-92.063 43.486,-139.678 86.974,-92.063C86.974,-92.063 121.144,-28.571 86.974,3.171C86.974,3.171 31.062,47.615 0,3.171C0,3.171 -37.275,-31.75 0,-92.063" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,727.738,435.209)"><path d="M0,0.002C0,18.543 -10.93,33.574 -24.408,33.574C-37.885,33.574 -48.814,18.543 -48.814,0.002C-48.814,-18.539 -37.885,-33.572 -24.408,-33.572C-10.93,-33.572 0,-18.539 0,0.002" style="fill:white;fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,483.3,502.984)"><path d="M0,-98.439C0,-98.439 74.596,-131.467 94.956,-57.748C94.956,-57.748 116.283,28.178 33.697,33.028C33.697,33.028 -71.613,12.745 0,-98.439" style="fill-rule:nonzero;"/></g>
+                      <g transform="matrix(1,0,0,1,520.766,436.428)"><path d="M0,0C0,19.119 -11.27,34.627 -25.173,34.627C-39.071,34.627 -50.344,19.119 -50.344,0C-50.344,-19.124 -39.071,-34.627 -25.173,-34.627C-11.27,-34.627 0,-19.124 0,0" style="fill:white;fill-rule:nonzero;"/></g>
+                      <g transform="matrix(-1.53e-05,-239.021,-239.021,1.53e-05,402.161,775.388)"><path d="M0.367,0.129C-0.364,-0.441 0.223,-0.711 0.223,-0.711C0.259,-0.391 0.472,-0.164 0.472,-0.164C0.521,-0.548 0.525,-0.77 0.525,-0.77C1.203,-0.256 0.589,0.161 0.589,0.161C0.627,0.265 0.772,0.372 0.906,0.451L1,0.77C0.376,0.403 0.367,0.129 0.367,0.129Z" style="fill:url(#ferris-gradient-6);fill-rule:nonzero;"/></g>
+                    </svg>
+                  </span>
+                </div>
+                <p class="bot-card-desc">Prefers captures and center control.</p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="white" aria-label="Load Smart Bot (Rust) as white player" title="Load Smart Bot (Rust) as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="smart-bot" data-color="black" aria-label="Load Smart Bot (Rust) as black player" title="Load Smart Bot (Rust) as black player">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Smart Bot (Rust) source code on GitHub" title="View source code on GitHub">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+              <div class="bot-card">
+                <div class="bot-card-header">
+                  <strong>Smart Bot</strong>
+                  <span class="bot-lang bot-lang-python" title="Written in Python">
+                    <svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true">
+                      <path fill="#3776AB" d="M15.885 2.1c-7.1 0-6.651 3.07-6.651 3.07v3.19h6.752v.96H6.545S2 8.8 2 16.005s4.013 6.912 4.013 6.912h2.4v-3.36s-.13-4.013 3.9-4.013h6.673s3.827.06 3.827-3.702V5.8s.572-3.7-6.928-3.7zm-3.82 2.15c.666 0 1.21.545 1.21 1.21 0 .666-.544 1.21-1.21 1.21s-1.21-.544-1.21-1.21c0-.665.544-1.21 1.21-1.21z"/>
+                      <path fill="#FFD43B" d="M16.115 29.9c7.1 0 6.651-3.07 6.651-3.07v-3.19h-6.751v-.96h9.441S30 23.2 30 15.995s-4.013-6.912-4.013-6.912H23.6v3.36s.13 4.013-3.9 4.013h-6.673s-3.827-.06-3.827 3.702v6.042s-.572 3.7 6.928 3.7zm3.82-2.15c-.666 0-1.21-.545-1.21-1.21 0-.666.544-1.21 1.21-1.21s1.21.544 1.21 1.21c0 .665-.544 1.21-1.21 1.21z"/>
+                    </svg>
+                  </span>
+                </div>
+                <p class="bot-card-desc">Same strategy, written in Python.</p>
+                <div class="bot-card-actions">
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="white" aria-label="Load Smart Bot (Python) as white player" title="Load Smart Bot (Python) as white player">Load White</button>
+                  <button class="bot-load-btn" data-bot="python-smart-bot" data-color="black" aria-label="Load Smart Bot (Python) as black player" title="Load Smart Bot (Python) as black player">Load Black</button>
+                  <a href="https://github.com/sammasak/playground/tree/main/bots/python-smart-bot" target="_blank" rel="noopener noreferrer" class="bot-source-link" aria-label="View Smart Bot (Python) source code on GitHub" title="View source code on GitHub">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Uploaded Bots Section (dynamically shown on first upload) -->
+          <div id="uploaded-bots-section" class="wit-section" style="display: none;" aria-live="polite" role="region" aria-label="Uploaded Bots">
+            <h3>Uploaded Bots</h3>
+            <div id="uploaded-bots-container" class="bot-cards">
+              <!-- Uploaded bot cards will be dynamically added here -->
+            </div>
+          </div>
+
+          <!-- Upload Custom Bot Section -->
+          <div class="wit-section">
+            <h3>Upload Custom Bot</h3>
+            <div class="bot-cards">
+              <div class="bot-card" id="upload-card">
+                <div class="bot-card-header">
+                  <strong>Your Own Bot</strong>
+                  <span class="bot-lang bot-lang-wasm" title="WebAssembly Component">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 107.62 107.62" aria-hidden="true">
+                      <defs>
+                        <style>
+                          .cls-1 {
+                            fill: #654ff0;
+                          }
+                        </style>
+                      </defs>
+                      <title>web-assembly-icon</title>
+                      <g id="Layer_2" data-name="Layer 2">
+                        <g id="Notch_-_Purple" data-name="Notch - Purple">
+                          <g id="icon">
+                            <path class="cls-1" d="M66.12,0c0,.19,0,.38,0,.58a12.34,12.34,0,1,1-24.68,0c0-.2,0-.39,0-.58H0V107.62H107.62V0ZM51.38,96.1,46.14,70.17H46L40.39,96.1H33.18L25,58h7.13L37,83.93h.09L42.94,58h6.67L54.9,84.25H55L60.55,58h7L58.46,96.1Zm39.26,0-2.43-8.48H75.4L73.53,96.1H66.36L75.59,58H86.83L98,96.1Z"/>
+                            <polygon class="cls-1" points="79.87 67.39 76.76 81.37 86.44 81.37 82.87 67.39 79.87 67.39"/>
+                          </g>
+                        </g>
+                      </g>
+                    </svg>
+                  </span>
+                </div>
+                <p class="bot-card-desc">
+                  Upload a WASM component implementing the chess bot interface.
+                  <a href="https://github.com/sammasak/playground/blob/main/wit/chess-bot/bot.wit"
+                     target="_blank" rel="noopener noreferrer">View WIT spec</a>
+                </p>
+                <div class="bot-card-actions">
+                  <button class="btn-primary" id="upload-wasm-btn" aria-label="Browse for WASM bot file to upload" aria-describedby="upload-error">Browse Files</button>
+                  <input type="file" id="wasm-file-input" accept=".wasm" style="display: none;" aria-label="WASM file input">
+                </div>
+                <div id="upload-error" class="upload-error" style="display: none;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wit-section">
+            <button class="tab-link" data-tab="editor-tab" aria-label="Switch to Python Editor tab">Open Python Editor →</button>
+          </div>
+        </div>
+
+        <!-- Python Editor Tab -->
+        <div id="editor-tab" class="tab-pane" style="display: none;" role="tabpanel" aria-labelledby="tab-btn-editor" tabindex="0">
+          <h2 class="visually-hidden">Python Bot Editor</h2>
+          <div class="editor-header">
+            <h3>Python Bot Playground</h3>
+            <p class="editor-desc">Implement the WIT bot interface as Python functions. Host functions are globals.</p>
+            <p class="editor-desc"><em>Powered by <a href="https://github.com/pydantic/monty" target="_blank" rel="noopener noreferrer">Monty</a> — secure Python subset in WASM</em></p>
+          </div>
+          <div id="python-code-editor" data-initial-code={pythonExample} role="region" aria-label="Python code editor"></div>
+          <div class="editor-actions">
+            <button id="test-python" class="btn-success" aria-label="Test Python bot code" title="Test your Python bot code for errors"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Test Code</button>
+            <button id="apply-python" aria-label="Apply Python bot to game" title="Apply this Python bot to the game"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Apply to Bot</button>
+          </div>
+          <div id="python-feedback" style="display: none;" role="alert" aria-live="assertive"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="bot-upload" accept=".wasm,.js" style="display: none;" aria-label="Select bot file to upload">
+
+  <!-- Keyboard shortcuts help modal -->
+  <div id="keyboard-help-modal" class="promotion-modal" style="display: none;" role="dialog" aria-labelledby="keyboard-help-title" aria-modal="true">
+    <div class="keyboard-help-content">
+      <h2 id="keyboard-help-title">Keyboard Shortcuts</h2>
+      <button id="close-keyboard-help" class="close-modal-btn" aria-label="Close keyboard shortcuts help">✕</button>
+      <div class="keyboard-shortcuts-list">
+        <h3>Chess Board Navigation</h3>
+        <dl>
+          <dt><kbd>Arrow Keys</kbd></dt>
+          <dd>Navigate between squares on the chess board</dd>
+          <dt><kbd>Enter</kbd> or <kbd>Space</kbd></dt>
+          <dd>Select a piece or make a move</dd>
+          <dt><kbd>Escape</kbd></dt>
+          <dd>Cancel current selection</dd>
+        </dl>
+        <h3>Tab Navigation</h3>
+        <dl>
+          <dt><kbd>Tab</kbd></dt>
+          <dd>Move to next interactive element</dd>
+          <dt><kbd>Shift + Tab</kbd></dt>
+          <dd>Move to previous interactive element</dd>
+        </dl>
+        <h3>Python Editor</h3>
+        <dl>
+          <dt><kbd>Ctrl + S</kbd> or <kbd>Cmd + S</kbd></dt>
+          <dd>Apply Python code to bot</dd>
+          <dt><kbd>Ctrl + Enter</kbd> or <kbd>Cmd + Enter</kbd></dt>
+          <dd>Test Python code</dd>
+        </dl>
+      </div>
+      <button id="close-keyboard-help-btn" class="btn-primary">Got it!</button>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  @import '../assets/chess-board.css';
+  @import '../assets/button-enhancements.css';
+  @import '../assets/board-interaction-enhancements.css';
+  @import '../assets/accessibility-enhancements.css';
+</style>
+
+<script>
+  import '../scripts/chess-game.js';
+  import { initializeUpload } from '../scripts/upload-handler.js';
+
+  // Initialize upload functionality
+  initializeUpload();
+</script>

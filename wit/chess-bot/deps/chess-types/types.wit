@@ -1,0 +1,73 @@
+// Shared types for the chess ecosystem
+package chess:types@0.1.0;
+
+interface types {
+    // Piece types
+    enum piece-type {
+        pawn,
+        knight,
+        bishop,
+        rook,
+        queen,
+        king,
+    }
+
+    // Colors
+    enum color {
+        white,
+        black,
+    }
+
+    // A piece on the board
+    record piece {
+        piece-type: piece-type,
+        color: color,
+    }
+
+    // Square on the board (0-63, where 0=a1, 63=h8)
+    type square = u8;
+
+    // A move in UCI format (e.g., "e2e4", "e7e8q" for promotion)
+    type move = string;
+
+    // A single entry in the move history
+    record move-history-entry {
+        uci-move: move,
+        resulting-fen: string,
+    }
+
+    // Board representation - array of 64 squares
+    // Each square is either empty (none) or has a piece
+    record board-state {
+        squares: list<option<piece>>,
+        turn: color,
+        castling-rights: castling,
+        en-passant: option<square>,
+        halfmove-clock: u16,
+        fullmove-number: u16,
+        move-history: list<move-history-entry>,
+    }
+
+    // Castling rights
+    record castling {
+        white-kingside: bool,
+        white-queenside: bool,
+        black-kingside: bool,
+        black-queenside: bool,
+    }
+
+    // Game result
+    enum game-result {
+        in-progress,
+        checkmate,
+        stalemate,
+        draw,
+    }
+
+    // Engine error types
+    enum engine-error {
+        invalid-fen,
+        illegal-move,
+        game-over,
+    }
+}
